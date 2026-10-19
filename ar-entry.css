@@ -1,0 +1,22 @@
+/* AR is the entry; only explicit mode controls lead to the 3D studio. */
+#stage.camera-gated #viewer { visibility: hidden; }
+#stage.camera-gated .toolrail, #stage.camera-gated .bottom-dock, #stage.camera-gated .detail-panel,
+#stage.camera-gated .stage-caption, #stage.camera-gated .flow-overlay { visibility: hidden; pointer-events: none; }
+#stage .camera-gate { z-index: 22; touch-action: manipulation; overflow-y: auto; }
+#stage .camera-gate-card { max-height: 100%; }
+#stage .camera-gate-actions { flex-wrap: wrap; }
+#stage .camera-gate-actions button { touch-action: manipulation; min-height: 46px; }
+#stage #camera-fallback { background: #e6f5f8; color: #164758; border-color: #e6f5f8; }
+#stage #ar-entry-context { font-size: 10px; color: #9cbdc6; overflow-wrap: anywhere; min-height: 0; margin: -5px 0 17px; }
+#stage.camera-active { background: #132426; }
+#stage.camera-active #viewer { background: transparent; }
+#stage #view-mode-toggle { flex: .95; }
+#stage #view-mode-toggle[aria-pressed=true] { color: #116b84; border-color: #a2c9d3; }
+@container stage (min-aspect-ratio: 1 / 1) and (max-height: 420px) {
+  #stage .camera-gate { padding-top: 53px; padding-bottom: 8px; }
+  #stage .camera-gate-card > svg { width: 32px; height: 32px; margin-bottom: 0; }
+  #stage .camera-gate-card h1 { font-size: 18px; margin-bottom: 5px; }
+  #stage .camera-gate-card p { margin-bottom: 9px; font-size: 10px; }
+  #stage #ar-entry-context { margin-bottom: 10px; font-size: 9px; }
+  #stage .camera-gate-card small { margin-top: 8px; font-size: 8px; }
+}

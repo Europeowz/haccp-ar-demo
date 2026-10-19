@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f8">
+  <meta name="description" content="饮料灌装示例：从工艺识别、危害分析到 HACCP 计划与三维产线的联动展示。">
+  <title>饮料灌装方案 · HACCP 可视化演示</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="orientation-shared.css?v=6">
+  <link rel="stylesheet" href="print.css" media="print">
+  <script type="module" src="vendor/model-viewer-4.3.1.min.js"></script>
+  <script type="module" src="app.js?v=6"></script>
+  <script type="module" src="analysis-orientation.js?v=6"></script>
+</head>
+<body>
+  <div id="analysis-shell" class="orientation-surface">
+  <header class="topbar">
+    <a class="brand" href="./?case=water" aria-label="返回 AR 产线展台">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 21V10l6 3V7l6 3V4h6v17H4Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 17h2m4 0h2m3-3h1m-1 3h1" stroke="currentColor" stroke-width="1.6"/></svg>
+      </span>
+      <span><span class="brand-name">工业 HACCP 可视化</span><span class="brand-en">PROCESS TO PLAN</span></span>
+    </a>
+    <div class="analysis-header-actions"><div class="header-meta"><span id="case-version">DEMO 04</span><span class="demo-badge">演示模式 · 预置饮料案例</span></div><button id="analysis-orientation" type="button" aria-pressed="false">横屏查看</button></div>
+  </header>
+
+  <main class="shell">
+    <section id="case-error" hidden role="alert">
+      <h1>这个演示案例尚未配置</h1>
+      <p>当前提供一条饮料灌装示例产线。</p>
+      <a href="./?case=water">查看饮料灌装示例</a>
+    </section>
+
+    <section class="project-intro" aria-labelledby="case-title">
+      <div>
+        <a class="return-to-stage" href="./?case=water">← 返回 AR 产线展台</a>
+        <p class="eyebrow">工艺方案 / HACCP 分析 / 三维产线</p>
+        <h1 id="case-title">饮料灌装线示范方案</h1>
+        <p class="intro-copy">从一份工艺方案，看到每道工序的危害、控制要求与设备位置。</p>
+        <div class="project-meta"><span id="case-product">PET 常温非碳酸包装饮用水</span><span id="source-label">内置饮料方案 · 演示样例</span></div>
+      </div>
+      <div class="summary-metrics" aria-label="案例概要">
+        <div><strong>06</strong><span>工艺环节</span></div>
+        <div><strong>03</strong><span>危害类别</span></div>
+        <div><strong>01</strong><span>三维产线</span></div>
+      </div>
+    </section>
+
+    <section id="generation-panel" class="generation-panel" aria-labelledby="generation-title">
+      <div class="generation-heading">
+        <div><p class="eyebrow">方案到模型的可视化过程</p><h2 id="generation-title">工艺分析与模型配置</h2></div>
+        <p id="phase-label" role="status" aria-live="polite">正在准备演示案例</p>
+        <div class="generation-actions"><button id="replay" type="button">重新演示</button><button id="skip" type="button">直接查看结果</button></div>
+      </div>
+      <progress id="generation-progress" max="100" value="0" aria-label="演示步骤进度"></progress>
+      <ol id="generation-steps" aria-label="分析与展示步骤"></ol>
+      <p id="generation-note">过程与结果来自同一套内置饮料案例。</p>
+    </section>
+
+    <section id="workspace" class="workbench" data-phase="generating" aria-label="三维产线与工位分析">
+      <div class="workbench-main">
+        <div class="viewer-heading"><div><p class="eyebrow">方案可视化</p><h2>三维产线模型</h2></div><p>拖动旋转 · 双指缩放</p></div>
+        <div class="viewer-shell">
+          <span class="stage-label">PET / STILL WATER</span>
+          <model-viewer id="viewer"
+            src="assets/factory-mobile.glb" poster="assets/factory-premium.webp"
+            alt="瓶装水示范车间三维模型，包含灌装生产线及水处理、卫生和监控示意设施"
+            camera-controls touch-action="pan-y" interaction-prompt="none"
+            camera-target="0m 0.18m -0.20m" camera-orbit="28deg 44deg 5.1m" field-of-view="32deg"
+            min-camera-orbit="auto 15deg 0.6m" max-camera-orbit="auto 88deg 8m"
+            shadow-intensity="0.7" exposure="1.1" animation-name="LineCycle"
+            loading="eager">
+            <div class="loading-wrap" slot="progress-bar" role="status"><span id="load-label">正在准备产线模型</span><progress id="load-progress" max="1" value="0" aria-label="模型加载进度"></progress></div>
+            <button slot="ar-button" hidden aria-hidden="true" tabindex="-1" type="button">AR</button>
+          </model-viewer>
+          <span class="model-watermark">产线示意模型 · 非工程尺寸</span>
+          <p id="model-error" hidden role="alert">模型暂时无法加载，请刷新页面重试。工艺分析表仍可查看。</p>
+        </div>
+        <div class="viewer-toolbar" aria-label="模型控制">
+          <button id="play" type="button" disabled>播放产线</button>
+          <button id="reset" type="button" disabled>整体视角</button>
+          <button id="rotate" type="button" aria-pressed="false" disabled>自动旋转</button>
+          <button id="guide" type="button" aria-pressed="false" disabled>工序导览</button>
+          <button id="annotations" type="button" aria-pressed="true">隐藏标注</button>
+          <button id="ar" type="button" disabled>等身参观</button>
+        </div>
+        <p id="viewer-status" role="status" aria-live="polite">模型加载后即可旋转与缩放；选择工序查看对应分析。</p>
+      </div>
+
+      <nav id="process-strip" class="process-strip" aria-label="选择工艺环节"></nav>
+
+      <aside class="inspector" aria-labelledby="inspector-title">
+        <div class="inspector-heading"><span id="inspector-number">01</span><span>当前工位</span></div>
+        <h2 id="inspector-title">空瓶上料</h2>
+        <p class="inspector-action" id="inspector-action"></p>
+        <div class="field-group"><h3>主要危害</h3><div id="inspector-hazards"></div></div>
+        <div class="field-group"><h3>控制措施</h3><p id="inspector-controls"></p></div>
+        <div class="field-group"><h3>CCP 判定</h3><p id="inspector-ccp"></p><p id="inspector-reason"></p></div>
+        <details class="field-group"><summary>关键限值与监控要求</summary><h3>关键限值</h3><p id="inspector-limit"></p><h3>监控方法</h3><p id="inspector-monitoring"></p></details>
+        <details class="field-group"><summary>纠偏与记录</summary><h3>异常纠偏</h3><p id="inspector-corrective"></p><h3>所需记录</h3><p id="inspector-record"></p></details>
+        <p class="inspector-source" id="inspector-source"></p>
+      </aside>
+    </section>
+
+    <section class="report-panel" aria-labelledby="report-title">
+      <div class="report-heading">
+        <div><p class="eyebrow">HACCP 计划草案 / 示例</p><h2 id="report-title">工艺、分析与模型，一一对应</h2></div>
+        <div class="report-tools"><button id="download-plan" type="button">下载示例计划</button><button id="print-plan" type="button">打印计划</button></div>
+      </div>
+      <nav id="report-tabs" class="report-tabs" aria-label="选择分析表类型"><button type="button" data-tab="hazards" aria-pressed="true">危害分析</button><button type="button" data-tab="plan" aria-pressed="false">控制计划</button></nav>
+      <div class="table-scroll"><table><caption id="report-caption">预置饮料案例分析，点击工序可定位模型。</caption><thead id="report-head"></thead><tbody id="report-body"></tbody></table></div>
+    </section>
+
+    <section class="scope-note">
+      <details><summary>案例来源与演示说明</summary><p>本页使用内置饮料案例展示工艺分析、HACCP 计划草案与三维模型的对应关系。分析步骤为预置案例演示，尚未接入另一台电脑的文件解析结果。实际项目需要根据企业资料复核危害、CCP、关键限值与控制措施。</p><p>三维场景为产线示意，非工程 1:1。“等身参观”进入本站地面定位页面，不跳转到外部 AR 应用。网页分析表仍可下载和打印。</p></details>
+    </section>
+    <noscript><p role="alert">请启用 JavaScript，以查看工艺分析与模型联动。</p></noscript>
+  </main>
+  <footer class="page-footer"><span>PROCESS TO PLAN</span><span>饮料灌装案例 · 从工艺到控制的可视化展示</span><span>DEMO / 04</span></footer>
+  </div>
+</body>
+</html>
+

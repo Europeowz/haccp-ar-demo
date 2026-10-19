@@ -1,0 +1,128 @@
+{
+  "note": "局部剖面为结构原理示意，不代表特定设备工程结构。",
+  "coordinate_system": "glTF Y-up, metres",
+  "parts": [
+    {
+      "id": "base",
+      "name": "升降托瓶机构",
+      "node": "Bottle lift and support",
+      "assembled": [
+        0,
+        0.14,
+        0
+      ],
+      "exploded": [
+        0,
+        0.14,
+        0
+      ]
+    },
+    {
+      "id": "bottle",
+      "name": "瓶体与液位剖面",
+      "node": "PET bottle cross-section",
+      "assembled": [
+        0,
+        0.51,
+        0
+      ],
+      "exploded": [
+        -0.38,
+        0.51,
+        0
+      ]
+    },
+    {
+      "id": "nozzle",
+      "name": "卫生灌装阀与出液口",
+      "node": "Sanitary filling nozzle",
+      "assembled": [
+        0,
+        1.0,
+        0
+      ],
+      "exploded": [
+        0,
+        1.2,
+        0
+      ]
+    },
+    {
+      "id": "seal",
+      "name": "密封圈与快装卡箍",
+      "node": "Hygienic seal and coupling",
+      "assembled": [
+        0.07,
+        1.19,
+        0.02
+      ],
+      "exploded": [
+        0.49,
+        1.39,
+        0.02
+      ]
+    },
+    {
+      "id": "actuator",
+      "name": "阀杆与气动执行机构",
+      "node": "Valve stem and actuator",
+      "assembled": [
+        0,
+        1.61,
+        0
+      ],
+      "exploded": [
+        0,
+        2.16,
+        0
+      ]
+    },
+    {
+      "id": "manifold",
+      "name": "供液腔与卫生进液管",
+      "node": "Product inlet and supply chamber",
+      "assembled": [
+        0.3,
+        1.41,
+        0
+      ],
+      "exploded": [
+        0.78,
+        1.61,
+        0
+      ]
+    }
+  ],
+  "assembled": {
+    "cameraTarget": "0.10m 0.95m 0m",
+    "cameraOrbit": "20deg 74deg 3.5m",
+    "bounds": {
+      "min": [
+        -0.39,
+        -0.31,
+        0.0
+      ],
+      "max": [
+        0.42,
+        0.31,
+        1.761
+      ]
+    }
+  },
+  "exploded": {
+    "cameraTarget": "0.12m 1.13m 0m",
+    "cameraOrbit": "20deg 75deg 4.4m",
+    "bounds": {
+      "min": [
+        -0.508992,
+        -0.31,
+        0.0
+      ],
+      "max": [
+        0.9,
+        0.31,
+        2.311
+      ]
+    }
+  }
+}

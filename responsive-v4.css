@@ -1,0 +1,300 @@
+/* v4 layout boundary: every direction rule uses the actual stage container.
+   A rotated stage therefore receives the same layout as a naturally wide screen. */
+#stage {
+  container: stage / size;
+  --v4-safe-top: env(safe-area-inset-top, 0px);
+  --v4-safe-right: env(safe-area-inset-right, 0px);
+  --v4-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --v4-safe-left: env(safe-area-inset-left, 0px);
+  width: 100%; height: 100%; height: 100dvh;
+  overflow: hidden;
+}
+@media (orientation: portrait) {
+  #stage.force-landscape {
+    position: fixed; left: 50%; top: 50%;
+    width: 100dvh; height: 100dvw;
+    transform: translate(-50%, -50%) rotate(90deg);
+    transform-origin: center;
+    --v4-safe-top: env(safe-area-inset-right, 0px);
+    --v4-safe-right: env(safe-area-inset-bottom, 0px);
+    --v4-safe-bottom: env(safe-area-inset-left, 0px);
+    --v4-safe-left: env(safe-area-inset-top, 0px);
+  }
+}
+#stage button, #stage select, #stage a.primary-action { min-height: 42px; }
+#stage button { touch-action: manipulation; }
+#stage #viewer {
+  position: absolute; inset: 66px 62px 90px 0;
+  width: calc(100% - 62px); height: calc(100% - 156px);
+  margin: 0; min-width: 0; min-height: 0;
+}
+#stage .topbar {
+  position: absolute; z-index: 30;
+  top: max(9px, var(--v4-safe-top));
+  left: max(12px, var(--v4-safe-left)); right: max(12px, var(--v4-safe-right));
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  height: 46px; padding: 0; min-width: 0;
+}
+#stage .brand { min-width: 0; gap: 7px; padding: 5px 9px 5px 6px; border-radius: 11px; }
+#stage .brand-mark { width: 31px; height: 31px; border-radius: 8px; flex: none; }
+#stage .brand-mark svg { width: 23px; height: 23px; }
+#stage .brand strong { font-size: 13px; line-height: 1.4; white-space: nowrap; letter-spacing: .03em; }
+#stage .brand small { font-size: 8px; line-height: 1.6; letter-spacing: .1em; }
+#stage .topbar-actions { display: flex; align-items: center; gap: 6px; min-width: 0; pointer-events: auto; }
+#stage .case-badge, #stage #orientation-toggle {
+  min-height: 42px; border: 1px solid #d2e3e8; border-radius: 10px;
+  padding: 0 10px; background: #ffffffed; backdrop-filter: blur(12px);
+  font-size: 10px; white-space: nowrap; gap: 5px;
+}
+#stage #orientation-toggle { color: #125e78; }
+#stage #orientation-toggle[aria-pressed="true"] { background: #146d87; color: white; border-color: #146d87; }
+#stage .toolrail {
+  position: absolute; z-index: 7; top: 76px;
+  right: max(9px, var(--v4-safe-right));
+  display: flex; flex-direction: column; gap: 6px;
+  width: 51px; max-height: calc(100% - 180px);
+  overflow-y: auto; overflow-x: hidden; scrollbar-width: none; padding: 1px;
+}
+#stage .toolrail button { width: 49px; min-height: 49px; flex: none; padding: 4px 1px; gap: 3px; border-radius: 10px; }
+#stage .toolrail button svg { width: 18px; height: 18px; }
+#stage .toolrail button span { font-size: 8px; line-height: 1.25; }
+#stage .bottom-dock {
+  position: absolute; z-index: 8; bottom: 0;
+  left: max(10px, var(--v4-safe-left)); right: max(10px, var(--v4-safe-right));
+  width: auto; max-width: none; transform: none;
+  padding: 8px 0 calc(7px + var(--v4-safe-bottom));
+  background: linear-gradient(transparent, #edf4f5e0 16px, #edf4f5f7);
+  border-radius: 12px 12px 0 0;
+}
+#stage.camera-active .bottom-dock { background: linear-gradient(transparent, #f4f9f8e0 16px, #f4f9f8f7); }
+#stage .primary-actions { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+#stage .primary-actions > button, #stage .primary-actions > a {
+  min-width: 0; min-height: 44px; border-radius: 10px; padding: 0 8px;
+  font-size: 10px; line-height: 1.4; gap: 4px; white-space: nowrap;
+}
+#stage .primary-actions > button { flex: 1; }
+#stage .primary-actions > a { flex: 1.7; }
+#stage .primary-actions svg { width: 17px; height: 17px; }
+#stage .scope-line { font-size: 8px; line-height: 1.5; margin: 6px 0 0; letter-spacing: .03em; }
+#stage .stage-caption {
+  position: absolute; z-index: 3; left: max(13px, var(--v4-safe-left)); bottom: 90px;
+  max-width: calc(100% - 90px); font-size: 9px; gap: 6px; flex-wrap: wrap;
+}
+#stage .stage-caption span:first-child { padding: 4px 7px; }
+#stage .about-panel {
+  top: 64px; right: max(12px, var(--v4-safe-right));
+  width: min(340px, calc(100% - 24px)); max-height: calc(100% - 84px);
+  overflow: auto; padding: 17px; font-size: 11px; border-radius: 12px;
+}
+#stage .toast { bottom: 94px; max-width: calc(100% - 32px); font-size: 10px; padding: 9px 12px; border-radius: 10px; }
+#stage .error-panel { width: min(390px, calc(100% - 28px)); max-height: calc(100% - 145px); overflow: auto; padding: 22px; }
+#stage .loader { min-width: 180px; max-width: calc(100% - 30px); padding: 16px 20px; font-size: 11px; }
+#stage .hotspot, #stage .part-hotspot { width: 42px; min-height: 42px; font-size: 10px; }
+#stage .part-hotspot:not([aria-pressed="true"]) { display: grid; }
+
+/* Camera entry is intentional and readable while permission is pending/denied. */
+#stage .camera-gate {
+  position: absolute; z-index: 22; inset: 0;
+  display: grid; place-items: center;
+  background: radial-gradient(ellipse at 40% 35%, #294c53 0, #152e35 57%, #10252c 100%);
+  color: #f5fbfc; padding: 70px 20px 25px;
+}
+#stage .camera-gate:before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .25;
+  background: linear-gradient(#94c2c60d 1px, transparent 1px), linear-gradient(90deg, #94c2c60d 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse, #000, transparent 70%);
+}
+#stage .camera-gate-card { position: relative; width: min(360px, 100%); text-align: center; }
+#stage .camera-gate-card > svg { width: 65px; height: 65px; color: #a3d3dc; margin-bottom: 10px; }
+#stage .camera-gate-card h1 { margin: 0 0 13px; font-size: 23px; letter-spacing: .08em; font-weight: 550; }
+#stage .camera-gate-card p { min-height: 42px; margin: 0 0 18px; font-size: 12px; line-height: 1.8; color: #bbd4db; }
+#stage .camera-gate-actions { display: flex; justify-content: center; gap: 9px; }
+#stage .camera-gate-actions button { min-height: 46px; padding: 0 17px; border-radius: 10px; border: 1px solid #8ab6c1; background: transparent; color: #e5f5f8; font-size: 12px; }
+#stage #camera-retry { background: #e7f5f8; color: #154857; border-color: #e7f5f8; }
+#stage .camera-gate-card small { display: block; margin-top: 19px; color: #8faeb7; font-size: 10px; line-height: 1.6; }
+#stage.camera-opening #viewer { visibility: hidden; }
+#stage.camera-opening .studio-ground { opacity: 0; }
+
+/* Small top panel, rather than a full explanatory card, leaves room for equipment. */
+#stage .detail-panel {
+  position: absolute; z-index: 7; top: 70px;
+  left: max(12px, var(--v4-safe-left)); right: 71px;
+  width: auto; max-height: none; padding: 7px 9px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 6px;
+  overflow: visible; border-radius: 11px; background: #fffffff0;
+}
+#stage .structure-heading { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; min-height: 42px; }
+#stage .structure-heading > div { min-width: 0; }
+#stage .structure-heading small { display: block; font-size: 8px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#stage .structure-heading h2 { margin: 3px 0 0; font-size: 14px; line-height: 1.4; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#stage .structure-heading .text-button { min-height: 42px; padding: 0 3px; font-size: 9px; flex: none; }
+#stage .equipment-select-label { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 0; }
+#stage #equipment-select {
+  min-width: 0; width: 100%; min-height: 42px; height: 42px; max-width: 100%;
+  padding: 0 23px 0 8px; border: 1px solid #c9dee4; border-radius: 8px;
+  background: #f5fafb; color: #285b6b; font: inherit; font-size: 10px;
+}
+#stage .scope-segment { grid-column: 2; display: flex; gap: 3px; padding: 0; background: transparent; border-radius: 0; min-width: 0; }
+#stage .scope-segment button { min-height: 42px; width: auto; padding: 0 7px; font-size: 9px; white-space: nowrap; border: 1px solid #d2e3e7; background: #f4f9fa; }
+#stage .scope-segment button[aria-pressed="true"] { background: #146d87; color: #fff; border-color: #146d87; }
+#stage #detail-copy { display: none; }
+#stage.equipment-picker .equipment-select-label, #stage.equipment-picker .scope-segment { display: none; }
+#stage.equipment-picker #structure-controls, #stage.equipment-picker #parts-panel { display: none; }
+#stage.detail-open .stage-caption { display: none; }
+#stage.detail-open #viewer { inset: 180px 63px 215px 0; width: calc(100% - 63px); height: calc(100% - 395px); }
+#stage.equipment-picker #viewer { inset: 131px 63px 198px 0; width: calc(100% - 63px); height: calc(100% - 329px); }
+#stage.detail-open.hands-active #viewer { bottom: 278px; height: calc(100% - 458px); }
+#stage.equipment-picker.hands-active #viewer { bottom: 260px; height: calc(100% - 391px); }
+#stage.detail-open .toast { bottom: 223px; }
+#stage.detail-open.hands-active .toast { bottom: 286px; }
+#stage.equipment-picker .toast { bottom: 204px; }
+#stage.equipment-picker.hands-active .toast { bottom: 266px; }
+
+#stage #device-picker { margin: 0 0 8px; padding: 0; }
+#stage #device-picker > p { margin: 0 0 7px; text-align: center; font-size: 10px; line-height: 1.5; color: #517782; }
+#stage #device-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; padding: 0; }
+#stage #device-strip button { min-width: 0; min-height: 42px; padding: 5px; border: 1px solid #c9dfe5; border-radius: 8px; background: #fffffff1; color: #315f6d; font-size: 10px; line-height: 1.4; }
+#stage #device-strip button[aria-pressed="true"] { color: #fff; background: #146d87; border-color: #146d87; }
+#stage #structure-controls { padding: 0 0 6px; }
+#stage .explode-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+#stage .explode-row > button, #stage .zoom-buttons button { min-width: 42px; min-height: 42px; padding: 0 6px; border-radius: 8px; font-size: 10px; }
+#stage .zoom-buttons { display: flex; flex: none; gap: 3px; }
+#stage .zoom-buttons button { font-size: 17px; }
+#stage .explode-slider { flex: 1; min-width: 55px; padding: 0 2px; font-size: 9px; }
+#stage .explode-slider input { width: 100%; height: 31px; margin: 0; min-width: 0; }
+#stage .explode-slider > span { font-size: 9px; }
+#stage #structure-controls > p { margin: 1px 0 0; font-size: 8px; line-height: 1.5; }
+#stage #parts-panel { position: static; width: auto; max-height: none; padding: 0 0 7px; margin: 0; background: transparent; }
+#stage #parts-strip {
+  position: static; inset: auto; width: auto; max-height: none; height: auto;
+  display: flex; flex-direction: row; align-items: stretch; gap: 5px;
+  overflow-x: auto; overflow-y: hidden; padding: 1px 0 5px; background: transparent; border-radius: 0;
+}
+#stage #parts-strip button { flex: none; min-height: 42px; padding: 5px 9px; font-size: 9px; white-space: nowrap; text-align: center; }
+#stage .part-summary { display: block; padding: 5px 9px; margin: 0; border-radius: 8px; }
+#stage .part-summary strong { font-size: 10px; line-height: 1.4; }
+#stage .part-summary p { font-size: 9px; line-height: 1.4; margin: 3px 0 0; max-height: 26px; overflow: auto; }
+#stage #gesture-panel { display: flex; padding: 5px 7px; gap: 7px; margin: 0 0 7px; border-radius: 8px; }
+#stage #gesture-panel strong { font-size: 9px; line-height: 1.5; }
+#stage #gesture-panel p { font-size: 8px; margin: 2px 0 0; line-height: 1.4; }
+#stage #gesture-panel > button { min-width: 42px; min-height: 42px; font-size: 9px; }
+#stage #hand-preview { width: 45px; height: 36px; border-radius: 6px; }
+
+#stage #process-panel { padding: 0 0 8px; }
+#stage #process-panel nav { display: flex; gap: 4px; overflow-x: auto; padding: 1px 0 6px; margin: 0; }
+#stage .process-step { flex: none; min-width: 74px; min-height: 42px; padding: 5px 8px; font-size: 9px; }
+#stage .process-summary { min-height: 0; padding: 7px 10px; gap: 8px; border-radius: 9px; }
+#stage .process-summary > span { font-size: 18px; }
+#stage .process-summary strong { font-size: 10px; }
+#stage .process-summary p { font-size: 9px; line-height: 1.5; margin-top: 3px; max-height: 28px; }
+#stage.flow-open #viewer { bottom: 214px; height: calc(100% - 280px); }
+#stage.flow-open .stage-caption { bottom: 218px; }
+#stage.flow-open .toast { bottom: 225px; }
+
+/* A wide stage includes the portrait-device rotation fallback. */
+@container stage (min-aspect-ratio: 1 / 1) {
+  #stage .topbar { top: max(7px, var(--v4-safe-top)); height: 43px; }
+  #stage .brand { padding: 3px 8px 3px 5px; }
+  #stage .brand strong { font-size: 12px; }
+  #stage .brand small { font-size: 7px; }
+  #stage .brand-mark { width: 29px; height: 29px; }
+  #stage .toolrail { top: 63px; width: 51px; max-height: calc(100% - 135px); gap: 5px; }
+  #stage .toolrail button { min-height: 45px; }
+  #stage #viewer { inset: 57px 64px 75px 0; width: calc(100% - 64px); height: calc(100% - 132px); }
+  #stage .bottom-dock { left: max(12px, var(--v4-safe-left)); right: 75px; bottom: 0; padding: 5px 0 calc(5px + var(--v4-safe-bottom)); }
+  #stage .scope-line { display: none; }
+  #stage .primary-actions > button, #stage .primary-actions > a { min-height: 42px; font-size: 10px; }
+  #stage .stage-caption { bottom: 58px; font-size: 8px; }
+  #stage .toast { bottom: 67px; }
+  #stage .detail-panel { top: 61px; left: max(12px, var(--v4-safe-left)); right: auto; width: 182px; padding: 6px 8px; gap: 4px; }
+  #stage .structure-heading h2 { font-size: 12px; }
+  #stage .structure-heading small { font-size: 7px; }
+  #stage .structure-heading .text-button { font-size: 8px; }
+  #stage .equipment-select-label { display: none; }
+  #stage .scope-segment { grid-column: 1 / -1; width: 100%; gap: 4px; }
+  #stage .scope-segment button { flex: 1; padding: 0 4px; font-size: 8px; }
+  #stage.detail-open #viewer { inset: 57px 64px 113px 206px; width: calc(100% - 270px); height: calc(100% - 170px); }
+  #stage.detail-open.hands-active #viewer { bottom: 174px; height: calc(100% - 231px); }
+  #stage.equipment-picker #viewer { inset: 57px 64px 76px 206px; width: calc(100% - 270px); height: calc(100% - 133px); }
+  #stage.equipment-picker.hands-active #viewer { bottom: 137px; height: calc(100% - 194px); }
+  #stage.detail-open .bottom-dock { left: 206px; right: 75px; width: auto; max-width: none; transform: none; }
+  #stage #device-picker { position: fixed; z-index: 9; left: max(12px, var(--v4-safe-left)); top: 124px; bottom: max(7px, var(--v4-safe-bottom)); width: 182px; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  #stage #device-picker > p { text-align: left; font-size: 8px; padding: 0 5px; margin-bottom: 5px; }
+  #stage #device-strip { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; overflow-x: hidden; overflow-y: auto; padding: 1px 2px; scrollbar-width: thin; }
+  #stage #device-strip button { flex: none; width: 100%; min-height: 42px; text-align: left; font-size: 10px; padding: 5px 10px; }
+  #stage #parts-panel { position: fixed; z-index: 9; left: max(12px, var(--v4-safe-left)); top: 170px; bottom: max(7px, var(--v4-safe-bottom)); width: 182px; padding: 0; display: flex; flex-direction: column; }
+  #stage #parts-strip { flex: 1; min-height: 0; position: static; width: 100%; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; gap: 4px; padding: 1px 2px; background: #ffffffbf; border-radius: 9px; scrollbar-width: thin; }
+  #stage #parts-strip button { width: 100%; min-height: 42px; text-align: left; white-space: normal; line-height: 1.4; font-size: 9px; padding: 6px 8px; }
+  #stage .part-summary { display: none; }
+  #stage #structure-controls { padding-bottom: 4px; }
+  #stage #structure-controls > p { font-size: 8px; line-height: 1.3; }
+  #stage .explode-slider input { height: 28px; }
+  #stage #gesture-panel { margin-bottom: 5px; padding: 4px 6px; }
+  #stage #gesture-panel strong { font-size: 8px; }
+  #stage #gesture-panel p { font-size: 7px; }
+  #stage #hand-preview { width: 41px; height: 33px; }
+  #stage.detail-open .toast { left: calc(50% + 65px); bottom: 119px; max-width: calc(100% - 300px); }
+  #stage.detail-open.hands-active .toast { bottom: 180px; }
+  #stage.equipment-picker .toast { bottom: 82px; }
+  #stage.equipment-picker.hands-active .toast { bottom: 143px; }
+  #stage.flow-open #viewer { bottom: 153px; height: calc(100% - 210px); }
+  #stage #process-panel { padding-bottom: 5px; }
+  #stage .process-summary { display: flex; align-items: center; padding: 4px 7px; gap: 6px; }
+  #stage .process-summary > span { font-size: 15px; }
+  #stage .process-summary > div { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  #stage .process-summary strong { flex: none; font-size: 9px; }
+  #stage .process-summary p { margin: 0; font-size: 8px; max-height: 24px; overflow: auto; }
+  #stage.flow-open .stage-caption { bottom: 160px; }
+  #stage.flow-open .toast { bottom: 163px; }
+  #stage .camera-gate { padding: 54px 20px 12px; }
+  #stage .camera-gate-card { width: min(410px, 100%); }
+  #stage .camera-gate-card > svg { width: 44px; height: 44px; margin-bottom: 3px; }
+  #stage .camera-gate-card h1 { font-size: 20px; margin-bottom: 7px; }
+  #stage .camera-gate-card p { min-height: 0; margin-bottom: 11px; font-size: 11px; }
+  #stage .camera-gate-card small { margin-top: 11px; font-size: 9px; }
+}
+
+/* Short portrait screens keep the selected equipment larger by reducing text. */
+@container stage (max-aspect-ratio: 1 / 1) and (max-height: 700px) {
+  #stage .brand strong { font-size: 12px; }
+  #stage .case-badge { padding: 0 7px; font-size: 9px; }
+  #stage #orientation-toggle { padding: 0 8px; font-size: 9px; }
+  #stage .part-summary p { display: none; }
+  #stage.detail-open #viewer { bottom: 190px; height: calc(100% - 370px); }
+  #stage.detail-open.hands-active #viewer { bottom: 227px; height: calc(100% - 407px); }
+  #stage.detail-open.hands-active .part-summary { display: none; }
+  #stage.detail-open.hands-active #gesture-panel p { display: none; }
+  #stage.equipment-picker #viewer { bottom: 198px; height: calc(100% - 329px); }
+  #stage.equipment-picker.hands-active #viewer { bottom: 249px; height: calc(100% - 380px); }
+  #stage.detail-open .toast { bottom: 197px; }
+  #stage.detail-open.hands-active .toast { bottom: 234px; }
+  #stage.equipment-picker .toast { bottom: 204px; }
+}
+@container stage (min-width: 1000px) and (min-height: 600px) {
+  #stage .topbar { top: max(17px, var(--v4-safe-top)); left: max(24px, var(--v4-safe-left)); right: max(24px, var(--v4-safe-right)); }
+  #stage .brand strong { font-size: 16px; }
+  #stage .brand small { font-size: 9px; }
+  #stage .brand-mark { width: 36px; height: 36px; }
+  #stage .toolrail { right: max(20px, var(--v4-safe-right)); top: 90px; width: 64px; max-height: calc(100% - 190px); gap: 8px; }
+  #stage .toolrail button { width: 62px; min-height: 60px; }
+  #stage .toolrail button span { font-size: 10px; }
+  #stage .toolrail button svg { width: 22px; height: 22px; }
+  #stage #viewer { inset: 80px 90px 95px 0; width: calc(100% - 90px); height: calc(100% - 175px); }
+  #stage .bottom-dock { left: 25%; right: 100px; padding-bottom: calc(14px + var(--v4-safe-bottom)); }
+  #stage .primary-actions > button, #stage .primary-actions > a { font-size: 12px; min-height: 46px; }
+  #stage .detail-panel { top: 85px; left: 23px; width: 220px; padding: 10px; }
+  #stage .structure-heading h2 { font-size: 14px; }
+  #stage .scope-segment button { font-size: 10px; }
+  #stage #parts-panel { left: 23px; width: 220px; top: 205px; bottom: 20px; }
+  #stage #device-picker { left: 23px; width: 220px; top: 157px; bottom: 20px; }
+  #stage #device-strip button, #stage #parts-strip button { font-size: 11px; min-height: 46px; }
+  #stage.detail-open #viewer { inset: 80px 90px 145px 265px; width: calc(100% - 355px); height: calc(100% - 225px); }
+  #stage.detail-open.hands-active #viewer { bottom: 210px; height: calc(100% - 290px); }
+  #stage.equipment-picker #viewer { inset: 80px 90px 95px 265px; width: calc(100% - 355px); height: calc(100% - 175px); }
+  #stage.equipment-picker.hands-active #viewer { bottom: 160px; height: calc(100% - 240px); }
+  #stage.detail-open .bottom-dock { left: 265px; right: 100px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #stage *, #stage *:before, #stage *:after { transition: none !important; animation: none !important; }
+}

@@ -1,0 +1,871 @@
+{
+  "title": "饮料灌装线设备结构库",
+  "schemaVersion": 1,
+  "note": "每台设备是功能结构示意，部件位移用于展示内部关系，不代表真实拆装顺序和工程尺寸。",
+  "equipment": [
+    {
+      "id": "p01",
+      "name": "空瓶上料输送机",
+      "process": "p01",
+      "description": "输送链板、驱动、导轨和进瓶挡轮的完整单机结构示意。",
+      "src": "assets/equipment/equipment-p01.glb",
+      "animation": "EquipmentExplode",
+      "explosionDuration": 2,
+      "cameraTarget": "-0.0418m 0.2505m 0.0498m",
+      "cameraOrbit": "28deg 68deg 2.4093m",
+      "fieldOfView": "32deg",
+      "bounds": {
+        "assembled": {
+          "min": [
+            -0.32999998331069946,
+            0.0,
+            -0.13199999928474426
+          ],
+          "max": [
+            0.32999998331069946,
+            0.33329999446868896,
+            0.14794999361038208
+          ]
+        },
+        "exploded": {
+          "min": [
+            -0.47189998626708984,
+            0.0,
+            -0.23539999127388
+          ],
+          "max": [
+            0.3883000314235687,
+            0.5010499954223633,
+            0.3349500000476837
+          ]
+        }
+      },
+      "parts": [
+        {
+          "id": "chassis",
+          "name": "输送机架与调平脚",
+          "description": "独立卫生机架、横梁和可调脚支承整台空瓶输送机。",
+          "node": "Part_chassis",
+          "assembled": [
+            0.0,
+            0.1111,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.1111,
+            -0.0
+          ]
+        },
+        {
+          "id": "drive",
+          "name": "驱动电机与减速箱",
+          "description": "电机、减速箱、联轴器与防护罩从侧面取出。",
+          "node": "Part_drive",
+          "assembled": [
+            0.2244,
+            0.200998,
+            0.045375
+          ],
+          "exploded": [
+            0.2244,
+            0.189997,
+            0.232375
+          ]
+        },
+        {
+          "id": "rollers",
+          "name": "主动与从动滚筒",
+          "description": "端部滚筒、轴和轴承座展示链板的驱动与回转关系。",
+          "node": "Part_rollers",
+          "assembled": [
+            0.0,
+            0.2266,
+            -0.0
+          ],
+          "exploded": [
+            0.099,
+            0.2816,
+            -0.143
+          ]
+        },
+        {
+          "id": "surface",
+          "name": "链板输送面与承托床",
+          "description": "链板条、耐磨承托和输送床组成可拆上层。",
+          "node": "Part_surface",
+          "assembled": [
+            0.0,
+            0.22759,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.40359,
+            -0.0
+          ]
+        },
+        {
+          "id": "guides",
+          "name": "可调导轨与支座",
+          "description": "两侧瓶体导轨、调节杆和锁紧块共同保持瓶流路径。",
+          "node": "Part_guides",
+          "assembled": [
+            0.0,
+            0.261525,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.470525,
+            0.154
+          ]
+        },
+        {
+          "id": "inlet",
+          "name": "进瓶挡轮与光电检测",
+          "description": "入口挡瓶轮、检测光电和安装支架演示空瓶进入位置。",
+          "node": "Part_inlet",
+          "assembled": [
+            -0.2475,
+            0.28655,
+            -0.004244
+          ],
+          "exploded": [
+            -0.4345,
+            0.40755,
+            -0.026244
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p02",
+      "name": "旋转冲洗机",
+      "process": "p02",
+      "description": "夹瓶转盘、倒置瓶、环形喷洗歧管及独立驱动的结构示意。",
+      "src": "assets/equipment/equipment-p02.glb",
+      "animation": "EquipmentExplode",
+      "explosionDuration": 2,
+      "cameraTarget": "0.0810m 0.3325m 0.0320m",
+      "cameraOrbit": "28deg 68deg 2.7562m",
+      "fieldOfView": "32deg",
+      "bounds": {
+        "assembled": {
+          "min": [
+            -0.2287999838590622,
+            0.0,
+            -0.22923998534679413
+          ],
+          "max": [
+            0.24199999868869781,
+            0.4779500365257263,
+            0.2172500044107437
+          ]
+        },
+        "exploded": {
+          "min": [
+            -0.2780799865722656,
+            0.0,
+            -0.405239999294281
+          ],
+          "max": [
+            0.4399999976158142,
+            0.6649500131607056,
+            0.46926000714302063
+          ]
+        }
+      },
+      "parts": [
+        {
+          "id": "chassis",
+          "name": "冲洗机架与接液台",
+          "description": "独立机架和接液台支承转盘；接液盘说明喷洗后的收集位置。",
+          "node": "Part_chassis",
+          "assembled": [
+            0.0,
+            0.12045,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.12045,
+            -0.0
+          ]
+        },
+        {
+          "id": "drive",
+          "name": "冲洗机驱动与中心轴",
+          "description": "电机、减速箱、联轴器和中心驱动轴从底部侧向分离。",
+          "node": "Part_drive",
+          "assembled": [
+            0.0,
+            0.184525,
+            -0.033825
+          ],
+          "exploded": [
+            -0.209,
+            0.162525,
+            0.021175
+          ]
+        },
+        {
+          "id": "rotor",
+          "name": "冲洗转盘与定位座",
+          "description": "复用原产线冲洗转盘、瓶位和辐条。",
+          "node": "Part_rotor",
+          "assembled": [
+            0.0,
+            0.260975,
+            -0.0
+          ],
+          "exploded": [
+            -0.11,
+            0.337975,
+            -0.0
+          ]
+        },
+        {
+          "id": "clamps",
+          "name": "夹瓶机构与倒置样瓶",
+          "description": "夹爪、铰接轴和倒置瓶体展示夹持及冲洗姿态，属原理示意。",
+          "node": "Part_clamps",
+          "assembled": [
+            -0.00055,
+            0.319592,
+            0.0022
+          ],
+          "exploded": [
+            0.13145,
+            0.451592,
+            0.0352
+          ]
+        },
+        {
+          "id": "wash",
+          "name": "喷头与供液歧管",
+          "description": "环形供液歧管、分支喷头、快装卡箍和进液阀展示喷洗路径。",
+          "node": "Part_wash",
+          "assembled": [
+            0.0,
+            0.28314,
+            -0.043979
+          ],
+          "exploded": [
+            0.0,
+            0.49214,
+            -0.219979
+          ]
+        },
+        {
+          "id": "hood",
+          "name": "防护罩与门联锁",
+          "description": "透明防护罩和结构框架向前上方打开。",
+          "node": "Part_hood",
+          "assembled": [
+            0.0,
+            0.3608,
+            0.002255
+          ],
+          "exploded": [
+            0.0,
+            0.5478,
+            0.266255
+          ]
+        },
+        {
+          "id": "controls",
+          "name": "控制面板与排液组件",
+          "description": "操作面板和接液排放支管作为辅助服务部件展示。",
+          "node": "Part_controls",
+          "assembled": [
+            0.11726,
+            0.252774,
+            0.007048
+          ],
+          "exploded": [
+            0.31526,
+            0.318774,
+            -0.069952
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p03",
+      "name": "旋转灌装机",
+      "process": "p03",
+      "description": "原产线灌装转盘、阀组与供液系统的独立结构示意。",
+      "src": "assets/equipment/equipment-p03.glb",
+      "animation": "EquipmentExplode",
+      "explosionDuration": 2,
+      "cameraTarget": "0.1008m 0.3902m 0.1048m",
+      "cameraOrbit": "28deg 68deg 3.2320m",
+      "fieldOfView": "32deg",
+      "bounds": {
+        "assembled": {
+          "min": [
+            -0.30799999833106995,
+            0.0,
+            -0.2695000171661377
+          ],
+          "max": [
+            0.31459999084472656,
+            0.6814500093460083,
+            0.2876499891281128
+          ]
+        },
+        "exploded": {
+          "min": [
+            -0.36608001589775085,
+            0.0,
+            -0.36629998683929443
+          ],
+          "max": [
+            0.5676000118255615,
+            0.7804499864578247,
+            0.5759600400924683
+          ]
+        }
+      },
+      "parts": [
+        {
+          "id": "chassis",
+          "name": "卫生机架与工作台",
+          "description": "独立承重机架、调平脚和卫生工作台；拆分后保留为定位基准。",
+          "node": "Part_chassis",
+          "assembled": [
+            0.0,
+            0.119625,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.119625,
+            -0.0
+          ]
+        },
+        {
+          "id": "drive",
+          "name": "驱动电机与减速传动",
+          "description": "电机、减速箱、联轴器及中心传动轴，为转盘提供驱动。",
+          "node": "Part_drive",
+          "assembled": [
+            0.0,
+            0.184525,
+            -0.040425
+          ],
+          "exploded": [
+            -0.242,
+            0.158125,
+            0.036575
+          ]
+        },
+        {
+          "id": "bottle_table",
+          "name": "瓶托转盘与样瓶",
+          "description": "复用原产线的旋转瓶托、定位槽和辐条，展示瓶体定位关系。",
+          "node": "Part_bottle_table",
+          "assembled": [
+            0.0,
+            0.30437,
+            -6.2e-05
+          ],
+          "exploded": [
+            -0.121,
+            0.37917,
+            -6.2e-05
+          ]
+        },
+        {
+          "id": "fill_heads",
+          "name": "灌装阀组与升降机构",
+          "description": "复用原产线20头灌装阀及连接管，向上展开观察阀组与瓶口对应。",
+          "node": "Part_fill_heads",
+          "assembled": [
+            -0.0,
+            0.399386,
+            -0.0
+          ],
+          "exploded": [
+            0.022,
+            0.641386,
+            -0.0
+          ]
+        },
+        {
+          "id": "supply",
+          "name": "分液腔与卫生供液管",
+          "description": "分液碗、上盖、快装卡箍、供液支管和阀门组成供液层。",
+          "node": "Part_supply",
+          "assembled": [
+            0.0341,
+            0.52052,
+            -0.03465
+          ],
+          "exploded": [
+            0.2211,
+            0.64152,
+            -0.17765
+          ]
+        },
+        {
+          "id": "guard",
+          "name": "安全围护与检修面板",
+          "description": "透明围护、框架、门联锁及机身面板从操作侧打开。",
+          "node": "Part_guard",
+          "assembled": [
+            0.0,
+            0.358875,
+            0.004455
+          ],
+          "exploded": [
+            0.0,
+            0.486475,
+            0.312455
+          ]
+        },
+        {
+          "id": "controls",
+          "name": "操作面板与状态灯",
+          "description": "触控面板、按钮及灯塔的独立电控展示模块。",
+          "node": "Part_controls",
+          "assembled": [
+            0.27379,
+            0.390225,
+            0.034815
+          ],
+          "exploded": [
+            0.52679,
+            0.489225,
+            0.188815
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p04",
+      "name": "旋转旋盖机",
+      "process": "p04",
+      "description": "瓶托、旋盖头、传动与理盖落盖轨道组成的完整单机结构示意。",
+      "src": "assets/equipment/equipment-p04.glb",
+      "animation": "EquipmentExplode",
+      "explosionDuration": 2,
+      "cameraTarget": "0.0136m 0.3622m 0.0433m",
+      "cameraOrbit": "28deg 68deg 2.5774m",
+      "fieldOfView": "32deg",
+      "bounds": {
+        "assembled": {
+          "min": [
+            -0.1979999989271164,
+            0.0,
+            -0.2516799867153168
+          ],
+          "max": [
+            0.20899999141693115,
+            0.5703499913215637,
+            0.2172500044107437
+          ]
+        },
+        "exploded": {
+          "min": [
+            -0.23759999871253967,
+            0.0,
+            -0.38367998600006104
+          ],
+          "max": [
+            0.2648800015449524,
+            0.7243499755859375,
+            0.4702500104904175
+          ]
+        }
+      },
+      "parts": [
+        {
+          "id": "chassis",
+          "name": "旋盖机架与工作台",
+          "description": "独立机架、卫生台面及调平脚保持装配基准。",
+          "node": "Part_chassis",
+          "assembled": [
+            0.0,
+            0.119625,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.119625,
+            -0.0
+          ]
+        },
+        {
+          "id": "drive",
+          "name": "驱动与旋转传动",
+          "description": "主电机、减速箱、中心轴及联轴器从侧下方展开。",
+          "node": "Part_drive",
+          "assembled": [
+            0.0,
+            0.187825,
+            -0.029425
+          ],
+          "exploded": [
+            -0.187,
+            0.165825,
+            0.036575
+          ]
+        },
+        {
+          "id": "rotor",
+          "name": "瓶托转盘与定位机构",
+          "description": "复用原旋盖转盘、瓶位和样瓶，展示封盖时瓶体定位。",
+          "node": "Part_rotor",
+          "assembled": [
+            0.0,
+            0.30217,
+            -0.0
+          ],
+          "exploded": [
+            -0.099,
+            0.37917,
+            -0.0
+          ]
+        },
+        {
+          "id": "heads",
+          "name": "旋盖头与升降组件",
+          "description": "复用原产线旋盖头组，补充夹盖套筒及驱动带轮。",
+          "node": "Part_heads",
+          "assembled": [
+            0.0,
+            0.39215,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.61215,
+            -0.0
+          ]
+        },
+        {
+          "id": "capfeed",
+          "name": "理盖盘与落盖轨道",
+          "description": "理盖盘、落盖导槽与示意瓶盖展示瓶盖供给路径。",
+          "node": "Part_capfeed",
+          "assembled": [
+            0.0099,
+            0.37334,
+            -0.134745
+          ],
+          "exploded": [
+            0.1859,
+            0.49434,
+            -0.266745
+          ]
+        },
+        {
+          "id": "guard",
+          "name": "防护罩与控制面板",
+          "description": "透明罩体、门联锁及触控控制板向操作侧分离。",
+          "node": "Part_guard",
+          "assembled": [
+            0.016775,
+            0.334675,
+            0.011
+          ],
+          "exploded": [
+            0.016775,
+            0.488675,
+            0.264
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p05",
+      "name": "检测与贴标单机",
+      "process": "p05",
+      "description": "检测相机、背光、标签供卷、剥离执行机构及剔除器的组合单机示意。",
+      "src": "assets/equipment/equipment-p05.glb",
+      "animation": "EquipmentExplode",
+      "explosionDuration": 2,
+      "cameraTarget": "0.0643m 0.2984m 0.0253m",
+      "cameraOrbit": "28deg 68deg 2.7635m",
+      "fieldOfView": "32deg",
+      "bounds": {
+        "assembled": {
+          "min": [
+            -0.3630000054836273,
+            0.0,
+            -0.19249999523162842
+          ],
+          "max": [
+            0.3651999831199646,
+            0.43505001068115234,
+            0.22990000247955322
+          ]
+        },
+        "exploded": {
+          "min": [
+            -0.45649999380111694,
+            0.0,
+            -0.2441999912261963
+          ],
+          "max": [
+            0.5851999521255493,
+            0.596750020980835,
+            0.2947999835014343
+          ]
+        }
+      },
+      "parts": [
+        {
+          "id": "chassis",
+          "name": "检测贴标机架",
+          "description": "单机机架、卫生台面和调平脚支承检测与贴标模块。",
+          "node": "Part_chassis",
+          "assembled": [
+            0.0,
+            0.116325,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.116325,
+            -0.0
+          ]
+        },
+        {
+          "id": "conveyor",
+          "name": "输送与瓶体导向",
+          "description": "输送链板、端部滚筒、导轨及样瓶展示检测贴标路径。",
+          "node": "Part_conveyor",
+          "assembled": [
+            0.0,
+            0.28952,
+            0.0484
+          ],
+          "exploded": [
+            -0.132,
+            0.37752,
+            0.0484
+          ]
+        },
+        {
+          "id": "camera",
+          "name": "检测相机与镜头",
+          "description": "相机、镜头调焦环、安装横梁和光电触发展开后可独立查看。",
+          "node": "Part_camera",
+          "assembled": [
+            -0.1958,
+            0.336325,
+            -0.00836
+          ],
+          "exploded": [
+            -0.3498,
+            0.479325,
+            -0.14036
+          ]
+        },
+        {
+          "id": "backlight",
+          "name": "背光与成像支架",
+          "description": "背光面板与支架展示相机对射成像关系。",
+          "node": "Part_backlight",
+          "assembled": [
+            -0.1958,
+            0.3223,
+            0.11088
+          ],
+          "exploded": [
+            -0.3498,
+            0.4213,
+            0.28688
+          ]
+        },
+        {
+          "id": "reels",
+          "name": "标签供卷与收卷",
+          "description": "供卷、回收卷、卷轴与导向滚轮组成标签供给模块。",
+          "node": "Part_reels",
+          "assembled": [
+            0.1342,
+            0.306075,
+            -0.1012
+          ],
+          "exploded": [
+            0.2552,
+            0.526075,
+            -0.1892
+          ]
+        },
+        {
+          "id": "applicator",
+          "name": "剥离板与贴标压辊",
+          "description": "标签带、剥离板、贴标辊与压紧轮组成贴标执行模块。",
+          "node": "Part_applicator",
+          "assembled": [
+            0.137946,
+            0.30195,
+            0.012877
+          ],
+          "exploded": [
+            0.313946,
+            0.42295,
+            0.177877
+          ]
+        },
+        {
+          "id": "reject",
+          "name": "剔除器与控制单元",
+          "description": "检测后的推杆、接料槽、隔离箱和触控面板展示剔除关系。",
+          "node": "Part_reject",
+          "assembled": [
+            0.2948,
+            0.2321,
+            0.056375
+          ],
+          "exploded": [
+            0.5148,
+            0.2761,
+            -0.042625
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p06",
+      "name": "成品下料输送机",
+      "process": "p06",
+      "description": "滚筒、驱动、导轨、出口挡停和成品样瓶的完整下料单机。",
+      "src": "assets/equipment/equipment-p06.glb",
+      "animation": "EquipmentExplode",
+      "explosionDuration": 2,
+      "cameraTarget": "0.0852m 0.3302m 0.0944m",
+      "cameraOrbit": "28deg 68deg 2.4324m",
+      "fieldOfView": "32deg",
+      "bounds": {
+        "assembled": {
+          "min": [
+            -0.3244999945163727,
+            0.0,
+            -0.14299999177455902
+          ],
+          "max": [
+            0.3244999945163727,
+            0.3524399995803833,
+            0.1491599977016449
+          ]
+        },
+        "exploded": {
+          "min": [
+            -0.3244999945163727,
+            0.0,
+            -0.14739999175071716
+          ],
+          "max": [
+            0.4949999749660492,
+            0.6604399681091309,
+            0.33616000413894653
+          ]
+        }
+      },
+      "parts": [
+        {
+          "id": "chassis",
+          "name": "下料输送机架",
+          "description": "独立机架、调平脚、侧梁和承载框架。",
+          "node": "Part_chassis",
+          "assembled": [
+            0.0,
+            0.1155,
+            -0.0
+          ],
+          "exploded": [
+            0.0,
+            0.1155,
+            -0.0
+          ]
+        },
+        {
+          "id": "drive",
+          "name": "驱动与同步传动",
+          "description": "电机、减速箱、轴与示意同步带轮从侧面展开。",
+          "node": "Part_drive",
+          "assembled": [
+            0.204116,
+            0.185746,
+            0.04708
+          ],
+          "exploded": [
+            0.105116,
+            0.174746,
+            0.23408
+          ]
+        },
+        {
+          "id": "rollers",
+          "name": "滚筒输送模块",
+          "description": "成组滚筒、轴与轴承座作为整体上层拆出。",
+          "node": "Part_rollers",
+          "assembled": [
+            0.00055,
+            0.2376,
+            -0.0
+          ],
+          "exploded": [
+            0.00055,
+            0.4026,
+            -0.044
+          ]
+        },
+        {
+          "id": "guides",
+          "name": "成品导向与防坠边",
+          "description": "两侧导轨、调节夹具和出料导向板保持产品路线。",
+          "node": "Part_guides",
+          "assembled": [
+            0.0165,
+            0.2684,
+            -0.0
+          ],
+          "exploded": [
+            0.0165,
+            0.4884,
+            0.143
+          ]
+        },
+        {
+          "id": "stop",
+          "name": "出口挡停与传感器",
+          "description": "可升降挡停、气缸与出料检测光电展示下料控制位置。",
+          "node": "Part_stop",
+          "assembled": [
+            0.2431,
+            0.26785,
+            0.00649
+          ],
+          "exploded": [
+            0.4631,
+            0.36685,
+            -0.07051
+          ]
+        },
+        {
+          "id": "products",
+          "name": "示意成品与接料托盘",
+          "description": "带标签成品瓶和接料托盘，用于说明成品输出姿态。",
+          "node": "Part_products",
+          "assembled": [
+            0.01254,
+            0.30272,
+            -0.0
+          ],
+          "exploded": [
+            0.12254,
+            0.61072,
+            -0.0
+          ]
+        }
+      ]
+    }
+  ]
+}

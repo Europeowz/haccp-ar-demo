@@ -1,0 +1,9 @@
+@page { size: A4; margin: 16mm; }
+body > :not(.print-only) { display: none !important; }
+.print-only[hidden] { display: block !important; color: #111; font: 10pt/1.65 "Microsoft YaHei", system-ui, sans-serif; }
+.print-only h1 { font-size: 19pt; margin: 0 0 10pt; }
+.print-only h2 { font-size: 13pt; margin-top: 20pt; break-after: avoid; }
+.print-only article { break-inside: auto; }
+.print-only dl { display: grid; grid-template-columns: 30mm 1fr; gap: 3pt 7pt; }
+.print-only dt { font-weight: 700; break-after: avoid; }
+.print-only dd { margin: 0; }

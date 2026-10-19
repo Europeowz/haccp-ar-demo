@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "title": "等身饮料灌装示意产线",
+  "src": "assets/line-lifesize.glb",
+  "iosSrc": "assets/line-lifesize.usdz",
+  "animation": "LineCycle",
+  "cameraTarget": "0m 1.1363m 0m",
+  "cameraOrbit": "28deg 65deg 21.0599m",
+  "fieldOfView": "38deg",
+  "footprint": {
+    "width": 13.587,
+    "depth": 2.122
+  },
+  "height": 2.4703,
+  "unit": "m",
+  "note": "等身比例示意，非工程1:1",
+  "description": "六台完整设备和短输送衔接段；移除展台地板、背景墙及独立标牌，便于在真实场地内绕行和近看。",
+  "bounds": {
+    "min": [
+      -6.7935,
+      0.0,
+      -1.061025
+    ],
+    "max": [
+      6.793499,
+      2.47025,
+      1.061025
+    ]
+  },
+  "animationDuration": 10,
+  "placement": "floor",
+  "recommendedClearArea": {
+    "width": 15.6,
+    "depth": 4.6
+  },
+  "sourceTransform": {
+    "source": "equipment/equipment-p01..p06.blend",
+    "tabletopScale": 0.22,
+    "newMetresPerSourceDesignUnit": 0.82,
+    "relativeUniformScale": 3.727272727272727,
+    "arrangement": "six separate complete machines joined left to right with 0.20 m transfer gaps",
+    "removed": "per-machine tabletop plinths; original factory diorama is not imported",
+    "globalFloorCentreBlender": [
+      2.384185791015625e-07,
+      0.09547507762908936,
+      0.0
+    ]
+  },
+  "equipment": [
+    {
+      "id": "p01",
+      "name": "空瓶上料输送机",
+      "height": 1.1726,
+      "width": 2.296,
+      "depth": 0.9164,
+      "source": "equipment-p01.blend",
+      "parts": 6,
+      "centre": [
+        -5.6455,
+        0.5863,
+        0.4778
+      ]
+    },
+    {
+      "id": "p02",
+      "name": "旋转冲洗机",
+      "height": 1.7118,
+      "width": 1.6892,
+      "depth": 1.6642,
+      "source": "equipment-p02.blend",
+      "parts": 7,
+      "centre": [
+        -3.4529,
+        0.8559,
+        -0.1178
+      ]
+    },
+    {
+      "id": "p03",
+      "name": "旋转灌装机",
+      "height": 2.4703,
+      "width": 2.2263,
+      "depth": 2.0377,
+      "source": "equipment-p03.blend",
+      "parts": 7,
+      "centre": [
+        -1.2952,
+        1.2351,
+        -0.0422
+      ]
+    },
+    {
+      "id": "p04",
+      "name": "旋转旋盖机",
+      "height": 2.0561,
+      "width": 1.4432,
+      "depth": 1.7478,
+      "source": "equipment-p04.blend",
+      "parts": 6,
+      "centre": [
+        0.7396,
+        1.0281,
+        -0.1596
+      ]
+    },
+    {
+      "id": "p05",
+      "name": "检测与贴标单机",
+      "height": 1.5519,
+      "width": 2.5994,
+      "depth": 1.4391,
+      "source": "equipment-p05.blend",
+      "parts": 7,
+      "centre": [
+        2.9609,
+        0.7759,
+        0.3415
+      ]
+    },
+    {
+      "id": "p06",
+      "name": "成品下料输送机",
+      "height": 1.2439,
+      "width": 2.3329,
+      "depth": 0.9455,
+      "source": "equipment-p06.blend",
+      "parts": 6,
+      "centre": [
+        5.627,
+        0.622,
+        0.4678
+      ]
+    }
+  ]
+}
