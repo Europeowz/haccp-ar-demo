@@ -7,11 +7,27 @@
   <meta name="description" content="饮料灌装示例：从工艺识别、危害分析到 HACCP 计划与三维产线的联动展示。">
   <title>饮料灌装方案 · HACCP 可视化演示</title>
   <link rel="icon" href="data:,">
+  <script>
+    (() => {
+      const query = new URLSearchParams(location.search);
+      if ((query.get('case') || 'water') !== 'water') return;
+      // Match the AR entrance URL so navigation can reuse the downloaded model.
+      const preload = document.createElement('link');
+      preload.rel = 'preload'; preload.as = 'fetch'; preload.crossOrigin = 'anonymous';
+      preload.href = 'assets/factory-mobile-v9.glb';
+      preload.fetchPriority = 'high'; document.head.append(preload);
+      window.ModelViewerElement = { ...(window.ModelViewerElement || {}),
+        meshoptDecoderLocation: new URL('vendor/meshopt/meshopt_decoder.js', location.href).href };
+      const decoder = document.createElement('link');
+      decoder.rel = 'preload'; decoder.as = 'script'; decoder.href = 'vendor/meshopt/meshopt_decoder.js';
+      document.head.append(decoder);
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="orientation-shared.css?v=6">
   <link rel="stylesheet" href="print.css" media="print">
   <script type="module" src="vendor/model-viewer-4.3.1.min.js"></script>
-  <script type="module" src="app.js?v=6"></script>
+  <script type="module" src="app.js?v=9"></script>
   <script type="module" src="analysis-orientation.js?v=6"></script>
 </head>
 <body>
@@ -65,7 +81,7 @@
         <div class="viewer-shell">
           <span class="stage-label">PET / STILL WATER</span>
           <model-viewer id="viewer"
-            src="assets/factory-mobile.glb" poster="assets/factory-premium.webp"
+            data-src="assets/factory-mobile-v9.glb" poster="assets/factory-premium.webp"
             alt="瓶装水示范车间三维模型，包含灌装生产线及水处理、卫生和监控示意设施"
             camera-controls touch-action="pan-y" interaction-prompt="none"
             camera-target="0m 0.18m -0.20m" camera-orbit="28deg 44deg 5.1m" field-of-view="32deg"
@@ -75,6 +91,13 @@
             <div class="loading-wrap" slot="progress-bar" role="status"><span id="load-label">正在准备产线模型</span><progress id="load-progress" max="1" value="0" aria-label="模型加载进度"></progress></div>
             <button slot="ar-button" hidden aria-hidden="true" tabindex="-1" type="button">AR</button>
           </model-viewer>
+          <script>
+            (() => {
+              if ((new URLSearchParams(location.search).get('case') || 'water') !== 'water') return;
+              const viewer = document.getElementById('viewer');
+              viewer.setAttribute('src', viewer.dataset.src);
+            })();
+          </script>
           <span class="model-watermark">产线示意模型 · 非工程尺寸</span>
           <p id="model-error" hidden role="alert">模型暂时无法加载，请刷新页面重试。工艺分析表仍可查看。</p>
         </div>

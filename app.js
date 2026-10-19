@@ -466,6 +466,9 @@ function startDemo() {
   if (params.get('view') === 'result' || reducedMotion.matches) completeGeneration();
   else beginGeneration();
   customElements.whenDefined('model-viewer').then(() => {
+    // Keep unsupported cases free of model requests; only the configured case
+    // reaches this initializer. The head preload uses this same shared URL.
+    if (!viewer.src && viewer.dataset.src) viewer.src = viewer.dataset.src;
     if (viewer.loaded && !modelLoaded) viewer.dispatchEvent(new Event('load'));
     updateAR();
     if (viewer.updateComplete) viewer.updateComplete.then(updateAR);

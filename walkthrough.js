@@ -3,7 +3,7 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   status, dimensions, progress, canvas, session, placeButton, resetButton, exitButton, hudStatus,
   title, onOpen = () => {}, onClose = () => {}, secure = () => window.isSecureContext,
   supported = () => /Android|iPhone|iPad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1,
-  loadMetadata = () => fetch('assets/line-lifesize.json?v=8').then((r) => { if (!r.ok) { const error = new Error('Metadata unavailable'); error.status = r.status; throw error; } return r.json(); }),
+  loadMetadata = () => fetch('assets/line-lifesize.json?v=9').then((r) => { if (!r.ok) { const error = new Error('Metadata unavailable'); error.status = r.status; throw error; } return r.json(); }),
   whenDefined = () => customElements.whenDefined('model-viewer'),
   engineFactory = async (options) => (await import('./spatial-engine.js?v=8')).createSpatialEngine(options),
 }) {
