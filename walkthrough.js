@@ -3,14 +3,35 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   status, dimensions, progress, canvas, session, placeButton, resetButton, exitButton, hudStatus,
   title, onOpen = () => {}, onClose = () => {}, secure = () => window.isSecureContext,
   supported = () => /Android|iPhone|iPad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1,
-  loadMetadata = () => fetch('assets/line-lifesize.json').then((r) => { if (!r.ok) throw new Error('Metadata unavailable'); return r.json(); }),
+  loadMetadata = () => fetch('assets/line-lifesize.json?v=8').then((r) => { if (!r.ok) { const error = new Error('Metadata unavailable'); error.status = r.status; throw error; } return r.json(); }),
   whenDefined = () => customElements.whenDefined('model-viewer'),
-  engineFactory = async (options) => (await import('./spatial-engine.js?v=6')).createSpatialEngine(options),
+  engineFactory = async (options) => (await import('./spatial-engine.js?v=8')).createSpatialEngine(options),
 }) {
   let phase = 'closed', metadata = null, prepared = false, preparing = null;
   let active = false, engine = null, revision = 0, lastFocus = null, mode = 'lifesize', stopping = null;
+  let previewRevision = 0, sourceAttempt = 0, automaticRetries = 0, expectedSource = null, previewLoading = false;
   const isOpen = () => phase !== 'closed';
   const text = (message) => { status.textContent = message; hudStatus.textContent = message; };
+  const sameSource = (source) => {
+    if (!source || !expectedSource) return !source;
+    try { return new URL(source, document.baseURI).href === new URL(expectedSource, document.baseURI).href; }
+    catch (_) { return String(source) === String(expectedSource); }
+  };
+  function errorInfo(detail = {}) {
+    const error = detail.sourceError || detail;
+    const statusCode = Number(error.response?.status ?? error.target?.status ?? error.status);
+    const http = Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599 ? statusCode : null;
+    const message = String(error.message || '');
+    const contextLost = detail.type === 'webglcontextlost';
+    const network = !contextLost && (error.name === 'NetworkError' || /failed to fetch|network\s*(?:error|request|failure)|load failed|fetch failed/i.test(message)
+      || http === 408 || http === 429 || http >= 500);
+    return {contextLost, network, http, type: detail.type || 'loadfailure'};
+  }
+  function cancelPreview() {
+    const wasLoading = previewLoading || !!preparing;
+    previewRevision += 1; preparing = null; previewLoading = false;
+    if (wasLoading) { prepared = false; expectedSource = null; viewer.src = null; }
+  }
   function render() {
     panel.hidden = !isOpen(); panel.dataset.phase = phase;
     session.hidden = !active; viewer.hidden = active;
@@ -32,13 +53,19 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
     else { phase = 'preview'; text('点击开始后，缓慢扫描普通地面；出现可放置提示后，再放置产线。无需定位图或 Google 服务。'); }
     render();
   }
-  async function prepare() {
+  async function prepare({fresh = false, automatic = false} = {}) {
     if (prepared) { if (viewer.loaded) showReady(); return; }
     if (preparing) return preparing;
-    phase = 'loading'; text('正在准备等身产线模型…'); render();
-    preparing = (async () => {
+    const token = ++previewRevision;
+    const current = () => token === previewRevision && isOpen() && !document.hidden;
+    phase = 'loading'; previewLoading = true; progress.value = 0;
+    text(automatic ? '模型下载中断，正在自动重试（1/1）…' : '正在准备等身产线模型…'); render();
+    const operation = Promise.resolve().then(async () => {
       try {
+        if (fresh) { viewer.src = null; await viewer.updateComplete; }
+        if (!current()) return;
         const [data] = await Promise.all([loadMetadata(), whenDefined()]);
+        if (!current()) return;
         if (!data.src || !data.footprint || !Number.isFinite(data.height)) throw new Error('Invalid metadata');
         metadata = data;
         viewer.removeAttribute('ar'); viewer.removeAttribute('ios-src'); viewer.removeAttribute('ar-modes');
@@ -47,19 +74,31 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
         viewer.cameraTarget = data.cameraTarget; viewer.cameraOrbit = data.cameraOrbit;
         viewer.animationName = data.animation || 'LineCycle';
         if (data.poster) viewer.poster = data.poster;
-        prepared = true; viewer.src = data.src; render();
+        // model-viewer caches failed GLTF loads by URL. A new URL is required to
+        // perform a real request after a failed transfer; assigning the same src is insufficient.
+        let source = data.src;
+        if (fresh) {
+          const [base, fragment] = source.split('#');
+          source = `${base}${base.includes('?') ? '&' : '?'}model-retry=${++sourceAttempt}${fragment === undefined ? '' : `#${fragment}`}`;
+        }
+        prepared = true; expectedSource = source; viewer.src = source; render();
         await viewer.updateComplete;
-        if (viewer.loaded) showReady();
+        if (current() && viewer.loaded) { previewLoading = false; showReady(); }
       } catch (error) {
-        if (isOpen()) { phase = 'error'; text('等身模型未能加载，可以重试或返回展台。'); render(); }
-      } finally { preparing = null; }
-    })();
-    return preparing;
+        if (current()) {
+          previewLoading = false; prepared = false; phase = 'error';
+          const {http} = errorInfo({sourceError: error});
+          text(`模型准备失败：清单或显示组件未就绪${http ? `（HTTP ${http}）` : ''}，请重新加载。`); render();
+        }
+      } finally { if (preparing === operation) preparing = null; }
+    });
+    preparing = operation;
+    return operation;
   }
   async function open(selectedMode = 'lifesize') {
     if (isOpen()) return;
     mode = selectedMode === 'tabletop' ? 'tabletop' : 'lifesize';
-    revision += 1; lastFocus = document.activeElement;
+    revision += 1; automaticRetries = 0; lastFocus = document.activeElement;
     phase = prepared && viewer.loaded ? 'preview' : 'loading';
     onOpen(); render(); closeButton.focus?.(); await prepare();
   }
@@ -77,6 +116,7 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   }
   async function close() {
     if (!isOpen()) return true;
+    cancelPreview();
     await stopSession();
     if (!isOpen()) return true;
     revision += 1; phase = 'closed'; viewer.pause?.(); render(); onClose(); lastFocus?.focus?.();
@@ -119,13 +159,42 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   openButton.addEventListener('click', () => void open());
   closeButton.addEventListener('click', () => void close());
   startButton.addEventListener('click', () => void launch());
-  retryButton.addEventListener('click', () => { prepared = false; viewer.src = null; void prepare(); });
+  retryButton.addEventListener('click', () => {
+    if (!isOpen() || active || document.hidden) return;
+    cancelPreview(); prepared = false; automaticRetries = 0;
+    void prepare({fresh: true});
+  });
   exitButton.addEventListener('click', () => void stopSession());
   placeButton.addEventListener('click', () => { engine?.place(); render(); });
   resetButton.addEventListener('click', () => { engine?.recenter(); render(); });
-  viewer.addEventListener('load', () => { if (isOpen()) showReady(); });
-  viewer.addEventListener('error', () => { if (isOpen() && !active) { prepared = false; phase = 'error'; text('模型未能加载，可重新加载。'); render(); } });
-  viewer.addEventListener('progress', (event) => { progress.value = event.detail?.totalProgress || 0; });
+  viewer.addEventListener('load', (event) => {
+    if (isOpen() && !document.hidden && prepared && expectedSource && sameSource(event.detail?.url)) {
+      previewLoading = false; automaticRetries = 0; showReady();
+    }
+  });
+  viewer.addEventListener('error', (event) => {
+    if (!isOpen() || active || document.hidden || !expectedSource) return;
+    const detail = event.detail || {};
+    const source = detail.url || detail.src || detail.sourceError?.response?.url || detail.sourceError?.target?.responseURL;
+    if (source && !sameSource(source)) return;
+    const info = errorInfo(detail);
+    previewLoading = false; prepared = false;
+    panel.dataset.modelError = info.type;
+    panel.dataset.modelHttp = info.http ? String(info.http) : '';
+    if (info.network && automaticRetries < 1) {
+      automaticRetries += 1; preparing = null;
+      void prepare({fresh: true, automatic: true}); return;
+    }
+    phase = 'error';
+    if (info.contextLost) text('设备图形显示已中断（WebGL），请关闭其他占用图形的页面后重新加载。');
+    else if (info.http) text(`模型下载失败（HTTP ${info.http}），请检查网络后重新加载。`);
+    else if (info.network) text('模型下载失败：网络连接中断，请检查网络后重新加载。');
+    else text('模型显示失败：文件未完整加载或图形处理失败，请重新加载。');
+    render();
+  });
+  viewer.addEventListener('progress', (event) => {
+    if (isOpen() && !document.hidden && previewLoading && expectedSource && sameSource(event.detail?.url)) progress.value = event.detail?.totalProgress || 0;
+  });
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); if (active) void stopSession(); else void close(); }
     if (event.key !== 'Tab') return;
@@ -136,8 +205,11 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && active) void stopSession('页面已暂停，返回后请重新识别地面。');
+    else if (document.hidden && isOpen() && previewLoading) {
+      cancelPreview(); phase = 'error'; text('模型加载已暂停，返回页面后请重新加载。'); render();
+    }
   });
-  window.addEventListener('pagehide', () => { if (active) void stopSession(); });
+  window.addEventListener('pagehide', () => { cancelPreview(); if (active) void stopSession(); });
   return { open, close, launch, stopSession, resize: () => engine?.resize?.(),
     getState: () => ({ phase, active, prepared, metadata, mode }) };
 }

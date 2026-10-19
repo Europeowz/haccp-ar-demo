@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "等身饮料灌装示意产线",
-  "src": "assets/line-lifesize.glb",
+  "src": "assets/line-lifesize-compact.glb",
   "iosSrc": "assets/line-lifesize.usdz",
   "animation": "LineCycle",
   "cameraTarget": "0m 1.1363m 0m",

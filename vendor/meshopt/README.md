@@ -1,0 +1,1 @@
+Meshoptimizer 1.3.0 decoder, MIT license. Original upstream decoder code retained. The CommonJS/UMD .cjs file is served as .js for browser script MIME compatibility; ESM .mjs is served as .module.js. Both include their decoder bytes and require no CDN.

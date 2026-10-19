@@ -6,9 +6,10 @@ let instanceCount = 0;
 async function localRuntime() {
   if (runtimePromise) return runtimePromise;
   runtimePromise = (async () => {
-    const [THREE, {GLTFLoader}] = await Promise.all([
+    const [THREE, {GLTFLoader}, {MeshoptDecoder}] = await Promise.all([
       import('./vendor/spatial/three/three.module.js'),
       import('./vendor/spatial/three/GLTFLoader.js'),
+      import('./vendor/meshopt/meshopt_decoder.module.js'),
     ]);
     // The official Threejs pipeline reads this global. Supplying the loader avoids its CDN fallback.
     window.THREE = {...THREE, GLTFLoader};
@@ -28,7 +29,7 @@ async function localRuntime() {
     const XR8 = window.XR8;
     if (XR8?.loadChunk && !XR8.XrController) await XR8.loadChunk('slam');
     if (!XR8?.XrController || !XR8?.Threejs) throw new Error('Spatial SLAM modules unavailable');
-    return {THREE, GLTFLoader, XR8};
+    return {THREE, GLTFLoader, MeshoptDecoder, XR8};
   })().catch(error => { runtimePromise = null; throw error; });
   return runtimePromise;
 }
@@ -192,6 +193,7 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
         if (!live(token)) return false;
         if (currentOwner && currentOwner !== api) throw new Error('Another spatial view is active');
         load = new deps.GLTFLoader();
+        if (deps.MeshoptDecoder) load.setMeshoptDecoder(deps.MeshoptDecoder);
         gltf = await load.loadAsync(modelUrl);
         if (!live(token)) { disposeTree(gltf.scene); return false; }
         pendingScene = gltf.scene;

@@ -1,12 +1,12 @@
 import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=6';
-import { setupWalkthrough } from './walkthrough.js?v=7';
+import { setupWalkthrough } from './walkthrough.js?v=8';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
 
 // Switch these paths only after the corresponding local assets exist.
 const ASSETS = {
-  line: 'assets/factory-mobile.glb',
+  line: 'assets/factory-mobile-compact.glb',
   poster: 'assets/factory-premium.webp',
   valveStructure: 'assets/filler-structure.glb',
   target: '0m 0.18m -0.20m',

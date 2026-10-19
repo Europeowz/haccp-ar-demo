@@ -7,6 +7,25 @@
   <meta name="description" content="饮料灌装线 AR 数字展台：查看产线、结构透视、设备解构与 HACCP 示例方案。">
   <title>饮料灌装线 · AR 数字展台</title>
   <link rel="icon" href="data:,">
+  <script>
+    // Start the selected model alongside the viewer library, before module execution.
+    (() => {
+      const query = new URLSearchParams(location.search);
+      if ((query.get('case') || 'water') !== 'water') return;
+      const preload = document.createElement('link');
+      preload.rel = 'preload'; preload.as = 'fetch'; preload.crossOrigin = 'anonymous';
+      preload.href = query.get('tour') === 'lifesize' ? 'assets/line-lifesize-compact.glb' : 'assets/factory-mobile-compact.glb';
+      preload.fetchPriority = 'high'; document.head.append(preload);
+      window.ModelViewerElement = { ...(window.ModelViewerElement || {}),
+        meshoptDecoderLocation: new URL('vendor/meshopt/meshopt_decoder.js', location.href).href };
+    })();
+  </script>
+  <link rel="modulepreload" href="case-data.js">
+  <link rel="modulepreload" href="touch-gestures.js">
+  <link rel="modulepreload" href="orientation.js?v=6">
+  <link rel="modulepreload" href="walkthrough.js?v=8">
+  <link rel="modulepreload" href="camera-fit.js?v=7">
+  <link rel="preload" href="vendor/meshopt/meshopt_decoder.js" as="script">
   <link rel="stylesheet" href="ar.css">
   <link rel="stylesheet" href="structure.css">
   <link rel="stylesheet" href="responsive-v4.css">
@@ -16,14 +35,14 @@
   <link rel="stylesheet" href="orientation-shared.css?v=6">
   <link rel="stylesheet" href="walkthrough.css?v=6">
   <link rel="stylesheet" href="responsive-v7.css?v=7">
-  <script type="module" src="ar.js?v=7"></script>
+  <script type="module" src="ar.js?v=8"></script>
 </head>
 <body>
   <main id="stage" class="stage camera-opening orientation-surface" aria-label="产线 AR 数字展台">
     <video id="camera-feed" autoplay muted playsinline aria-hidden="true"></video>
     <section id="camera-gate" class="camera-gate" aria-label="AR 实景展示入口"><div class="camera-gate-card"><svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M6 21V7h14m24 0h14v14M6 43v14h14m24 0h14V43M18 24l14-8 14 8v16l-14 8-14-8V24Zm0 0 14 8 14-8M32 32v16" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><h1 id="ar-entry-title">AR 实景产线</h1><p id="camera-gate-message" role="status">正在申请 AR 展示所需的相机权限，请在浏览器提示中允许。</p><p id="ar-entry-context" class="ar-entry-context" hidden></p><div class="camera-gate-actions"><button id="camera-retry" type="button" hidden>重试 AR</button><button id="camera-fallback" type="button">切换 3D</button></div><small>授权后直接呈现产线模型 · 无需安装</small></div></section>
     <div class="studio-ground" aria-hidden="true"></div>
-    <model-viewer id="viewer" data-src="assets/factory-mobile.glb" poster="assets/factory-premium.webp"
+    <model-viewer id="viewer" data-src="assets/factory-mobile-compact.glb" poster="assets/factory-premium.webp"
       alt="饮料灌装线三维示意模型，可旋转缩放、查看工序及设备结构"
       camera-controls interaction-prompt="none" touch-action="none"
       camera-target="0m 0.18m -0.20m" camera-orbit="28deg 60deg 4.5m" field-of-view="32deg"
