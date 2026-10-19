@@ -1,38 +1,85 @@
 /** Local 8th Wall SLAM integration. The proprietary runtime is shipped unchanged with its license. */
 let runtimePromise;
+let runtimeSignal;
+let readyRuntime;
 let currentOwner = null;
 let instanceCount = 0;
 
-async function localRuntime() {
-  if (runtimePromise) return runtimePromise;
-  runtimePromise = (async () => {
-    const [THREE, {GLTFLoader}, {MeshoptDecoder}] = await Promise.all([
+function abortedError() { const error = new Error('Spatial startup cancelled'); error.name = 'AbortError'; return error; }
+function waitFor(promise, {signal, timeout = 0, message = 'Spatial loading timed out', onLate} = {}) {
+  return new Promise((resolve, reject) => {
+    let settled = false, timer;
+    const cleanup = () => { clearTimeout(timer); signal?.removeEventListener('abort', cancel); };
+    const finish = (fn, value) => { if (settled) return; settled = true; cleanup(); fn(value); };
+    const cancel = () => finish(reject, abortedError());
+    Promise.resolve(promise).then(value => {
+      if (settled) { try { onLate?.(value); } catch (_) { /* A late resource must not revive startup. */ } }
+      else finish(resolve, value);
+    }, error => finish(reject, error));
+    if (signal?.aborted) cancel();
+    else {
+      signal?.addEventListener('abort', cancel, {once: true});
+      if (timeout > 0) timer = setTimeout(() => finish(reject, new Error(message)), timeout);
+    }
+  });
+}
+
+async function localRuntime({signal, onStage = () => {}} = {}) {
+  if (readyRuntime) return readyRuntime;
+  if (runtimePromise && !runtimeSignal?.aborted) return waitFor(runtimePromise, {signal});
+  runtimeSignal = signal;
+  const operation = (async () => {
+    onStage('runtime-download', '正在下载空间参观组件…');
+    const [THREE, {GLTFLoader}, {MeshoptDecoder}] = await waitFor(Promise.all([
       import('./vendor/spatial/three/three.module.js'),
       import('./vendor/spatial/three/GLTFLoader.js'),
       import('./vendor/meshopt/meshopt_decoder.module.js'),
-    ]);
+    ]), {signal, timeout: 20000, message: '空间参观组件下载超时，请检查网络后重试。'});
+    if (signal?.aborted) throw abortedError();
     // The official Threejs pipeline reads this global. Supplying the loader avoids its CDN fallback.
     window.THREE = {...THREE, GLTFLoader};
-    if (!window.XR8) await new Promise((resolve, reject) => {
+    if (!window.XR8) {
+      onStage('runtime-engine-download', '正在下载空间定位引擎…');
+      await new Promise((resolve, reject) => {
       const script = document.createElement('script');
       const done = () => { cleanup(); resolve(); };
       const fail = () => { cleanup(); script.remove(); reject(new Error('Local spatial runtime unavailable')); };
-      const timer = setTimeout(fail, 45000);
-      const cleanup = () => { clearTimeout(timer); window.removeEventListener('xrloaded', done); };
+      const cancel = () => { cleanup(); script.remove(); reject(abortedError()); };
+      const timer = setTimeout(() => { cleanup(); script.remove(); reject(new Error('空间定位资源下载超时，请检查网络后重试。')); }, 25000);
+      const cleanup = () => { clearTimeout(timer); window.removeEventListener('xrloaded', done); signal?.removeEventListener('abort', cancel); script.onerror = null; };
+      if (signal?.aborted) { cancel(); return; }
+      signal?.addEventListener('abort', cancel, {once: true});
       window.addEventListener('xrloaded', done, {once: true});
       script.src = new URL('./vendor/spatial/xr/xr.js', import.meta.url).href;
       script.async = true;
-      script.setAttribute('data-preload-chunks', 'slam');
       script.onerror = fail;
       document.head.appendChild(script);
-    });
+      });
+    }
+    if (signal?.aborted) throw abortedError();
     const XR8 = window.XR8;
-    if (XR8?.loadChunk && !XR8.XrController) await XR8.loadChunk('slam');
+    // xrloaded exposes the API before asynchronous device/WASM initialization has necessarily settled.
+    if (typeof XR8?.initialize === 'function') {
+      onStage('runtime-initialize', '正在准备此设备的空间定位能力…');
+      await waitFor(XR8.initialize(), {signal, timeout: 20000, message: '设备空间定位准备超时，请重新进入或使用普通三维展示。'});
+      if (signal?.aborted) throw abortedError();
+      if (typeof XR8.isInitialized === 'function' && !XR8.isInitialized()) throw new Error('Device spatial runtime did not initialize');
+    }
+    if (XR8?.loadChunk && !XR8.XrController) {
+      onStage('runtime-module-download', '正在下载地面定位资源…');
+      await waitFor(XR8.loadChunk('slam'), {signal, timeout: 20000, message: '地面定位资源下载超时，请检查网络后重试。'});
+    }
+    if (signal?.aborted) throw abortedError();
     if (!XR8?.XrController || !XR8?.Threejs) throw new Error('Spatial SLAM modules unavailable');
-    return {THREE, GLTFLoader, MeshoptDecoder, XR8};
-  })().catch(error => { runtimePromise = null; throw error; });
-  return runtimePromise;
+    return readyRuntime = {THREE, GLTFLoader, MeshoptDecoder, XR8};
+  })();
+  runtimePromise = operation;
+  try { return await operation; }
+  finally { if (runtimePromise === operation) { runtimePromise = null; runtimeSignal = null; } }
 }
+
+/** Downloads local libraries only. Does not request permissions, open a camera, or run SLAM. */
+export async function prepareSpatialRuntime(options = {}) { await localRuntime(options); return true; }
 
 function disposeTree(root) {
   const geometries = new Set(), materials = new Set(), textures = new Set();
@@ -61,9 +108,10 @@ function floorHit(hit) {
   return 1 - 2 * ((q.x / length) ** 2 + (q.z / length) ** 2) >= 0.85;
 }
 
-/** loadRuntime/now/startTimeout are optional injection points for isolated lifecycle tests. */
+/** Injection points permit isolated lifecycle tests without real cameras or requests. */
 export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState = () => {},
   loadRuntime = localRuntime, now = () => performance.now(), startTimeout = 45000,
+  fetchModel = (...args) => fetch(...args),
 }) {
   if (!canvas || !modelUrl || !Number.isFinite(scale) || scale <= 0) throw new Error('Invalid spatial engine options');
   const name = `haccp-spatial-${++instanceCount}`;
@@ -72,6 +120,7 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
   let root = null, model = null, reticle = null, mixer = null, xrScene = null, observer = null;
   let latestHit = null, hitAt = 0, lastUpdate = 0, startTimer = 0, settleStart = null;
   let currentStream = null, load = null, viewport = '', pendingScene = null;
+  let startController = null;
   const resources = [];
   const emit = (phase, message, patch = {}) => {
     state = {...state, ...patch, phase, message};
@@ -123,6 +172,7 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
     if (!wanted) return;
     wanted = false; generation++;
     clearTimeout(startTimer); startTimer = 0;
+    startController?.abort(); startController = null;
     settleStart?.(false); settleStart = null;
     releaseEngine();
     emit('error', message, {placementReady: false, placed: false, tracking: false});
@@ -173,7 +223,20 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
     if (wanted) return starting || true;
     wanted = true;
     const token = ++generation;
-    emit('loading', '正在加载本地空间定位引擎和等身产线…', {placed: false, placementReady: false, tracking: false});
+    const controller = startController = new AbortController();
+    const signal = controller.signal;
+    const loading = (stage, message, patch = {}) => { if (live(token)) emit('loading', message, {stage, ...patch}); };
+    const timeoutMessages = {
+      permissions: '运动与方向权限等待超时，请重新进入并允许权限。',
+      'runtime-download': '空间定位资源下载超时，请检查网络后重试。',
+      'runtime-initialize': '空间定位模块准备超时，请重新加载页面。',
+      'runtime-module-download': '地面定位资源下载超时，请检查网络后重试。',
+      'model-download': '产线模型下载超时，请检查网络后重试。',
+      'model-decode': '产线模型处理超时，请返回后重试。',
+      camera: '空间定位启动超时，请检查浏览器权限后重试。',
+    };
+    startTimer = setTimeout(() => { if (live(token)) fail(timeoutMessages[state.stage] || '空间参观准备超时，请返回后重试。'); }, startTimeout);
+    emit('loading', '正在准备空间参观权限…', {stage: 'permissions', placed: false, placementReady: false, tracking: false});
     // iOS requires these calls inside the user's click, before runtime/model loading awaits.
     const sensorPermissions = [];
     for (const EventType of [globalThis.DeviceMotionEvent, globalThis.DeviceOrientationEvent]) {
@@ -184,17 +247,32 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
     const operation = (async () => {
       let gltf;
       try {
-        const permissions = await Promise.all(sensorPermissions);
+        const permissions = await waitFor(Promise.all(sensorPermissions), {signal});
         if (!live(token)) return false;
         if (permissions.some(value => value !== 'granted')) {
           fail('空间参观需要运动与方向权限，请允许后重新开始。'); return false;
         }
-        deps = await loadRuntime();
+        loading('runtime-download', '正在下载空间定位资源…');
+        const loadedRuntime = await waitFor(loadRuntime({signal, onStage: loading}), {signal});
         if (!live(token)) return false;
+        deps = loadedRuntime;
         if (currentOwner && currentOwner !== api) throw new Error('Another spatial view is active');
         load = new deps.GLTFLoader();
         if (deps.MeshoptDecoder) load.setMeshoptDecoder(deps.MeshoptDecoder);
-        gltf = await load.loadAsync(modelUrl);
+        loading('model-download', '正在下载等身产线模型…');
+        if (typeof load.parseAsync === 'function') {
+          const response = await waitFor(fetchModel(modelUrl, {signal}), {signal});
+          if (!response.ok) throw new Error(`产线模型下载失败（HTTP ${response.status}），请重新加载页面。`);
+          const bytes = await waitFor(response.arrayBuffer(), {signal});
+          loading('model-decode', '产线已下载，正在准备三维设备…');
+          const base = new URL('.', new URL(modelUrl, globalThis.document?.baseURI || globalThis.location?.href)).href;
+          gltf = await waitFor(load.parseAsync(bytes, base), {signal, onLate: value => disposeTree(value?.scene)});
+        } else {
+          gltf = await waitFor(load.loadAsync(modelUrl, event => {
+            if (!live(token)) return;
+            if (event?.total > 0 && event.loaded >= event.total) loading('model-decode', '产线已下载，正在准备三维设备…');
+          }), {signal, onLate: value => disposeTree(value?.scene)});
+        }
         if (!live(token)) { disposeTree(gltf.scene); return false; }
         pendingScene = gltf.scene;
         if (currentOwner && currentOwner !== api) throw new Error('Another spatial view is active');
@@ -237,14 +315,18 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
         XR8.addCameraPipelineModules(modules);
         if (globalThis.ResizeObserver) { observer = new ResizeObserver(resize); observer.observe(canvas); }
         resize();
-        startTimer = setTimeout(() => { if (live(token)) fail('空间定位启动超时，请检查浏览器权限后重试。'); }, startTimeout);
+        loading('camera', '正在启动后置相机和空间定位…');
         const runResult = XR8.run({canvas, allowedDevices: XR8.XrConfig.device().MOBILE,
           cameraConfig: {direction: XR8.XrConfig.camera().BACK}, sessionConfiguration: {defaultEnvironment: {disabled: true}}});
         Promise.resolve(runResult).catch(() => { if (live(token)) fail('此设备暂时无法启动空间定位，可以返回桌面展示。'); });
         return await began;
-      } catch (_) {
+      } catch (error) {
         if (!live(token)) { if (gltf?.scene && gltf.scene !== model) disposeTree(gltf.scene); return false; }
-        fail('本地空间引擎或模型加载失败，请返回后重试。'); return false;
+        const specific = /超时|HTTP/.test(error?.message || '') ? error.message :
+          state.stage?.startsWith('runtime') ? '空间定位资源未能准备完成，请检查网络后重试。' :
+          state.stage?.startsWith('model') ? '产线模型未能加载，请重新加载页面后重试。' :
+          '空间参观未能启动，请检查权限后重试。';
+        fail(specific); return false;
       }
     })();
     starting = operation;
@@ -253,6 +335,7 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
   function stop() {
     wanted = false; generation++;
     clearTimeout(startTimer); startTimer = 0;
+    startController?.abort(); startController = null;
     settleStart?.(false); settleStart = null;
     releaseEngine();
     emit('stopped', '空间参观已停止。', {placed: false, placementReady: false, tracking: false});

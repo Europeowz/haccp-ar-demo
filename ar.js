@@ -1,7 +1,7 @@
 import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=6';
-import { setupWalkthrough } from './walkthrough.js?v=9';
+import { setupWalkthrough } from './walkthrough.js?v=10';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
 
 // Switch these paths only after the corresponding local assets exist.

@@ -24,6 +24,7 @@
 .spatial-top p { max-width: 460px; margin: 0; padding: 10px 12px; background: #13323ddc; border: 1px solid #ffffff36; border-radius: 10px; font-size: 12px; line-height: 1.6; }
 .spatial-top > div, .spatial-bottom > div { display: flex; gap: 8px; flex-shrink: 0; }
 .spatial-session button, .spatial-session a { pointer-events: auto; }
+.walkthrough .spatial-session button { color: #173b46; background: #fff; }
 .spatial-bottom > span { border-radius: 8px; padding: 6px 9px; background: #13323ddc; font-size: 10px; }
 .spatial-credit { color: inherit; font-size: 10px; text-decoration: none; }
 .spatial-bottom .spatial-credit { flex-basis: 100%; text-align: right; text-shadow: 0 1px 4px #000; }

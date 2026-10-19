@@ -5,13 +5,40 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   supported = () => /Android|iPhone|iPad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1,
   loadMetadata = () => fetch('assets/line-lifesize.json?v=9').then((r) => { if (!r.ok) { const error = new Error('Metadata unavailable'); error.status = r.status; throw error; } return r.json(); }),
   whenDefined = () => customElements.whenDefined('model-viewer'),
-  engineFactory = async (options) => (await import('./spatial-engine.js?v=8')).createSpatialEngine(options),
+  engineFactory = async (options) => (await import('./spatial-engine.js?v=10')).createSpatialEngine(options),
+  factoryTimeout = 15000, engineStartTimeout = 60000, permissionTimeout = 20000, stopTimeout = 3000,
+  setTimer = (callback, delay) => globalThis.setTimeout?.(callback, delay), clearTimer = (id) => globalThis.clearTimeout?.(id),
 }) {
   let phase = 'closed', metadata = null, prepared = false, preparing = null;
   let active = false, engine = null, revision = 0, lastFocus = null, mode = 'lifesize', stopping = null;
   let previewRevision = 0, sourceAttempt = 0, automaticRetries = 0, expectedSource = null, previewLoading = false;
+  let engineLease = null, engineFailure = false;
+  const pendingLaunchWaits = new Set();
   const isOpen = () => phase !== 'closed';
   const text = (message) => { status.textContent = message; hudStatus.textContent = message; };
+  function bounded(operation, milliseconds, message, {cancellable = true, onLate} = {}) {
+    return new Promise((resolve, reject) => {
+      let settled = false, timer;
+      const finish = (callback, result) => {
+        if (settled) return false;
+        settled = true; clearTimer(timer); pendingLaunchWaits.delete(cancel); callback(result); return true;
+      };
+      const cancel = () => { const error = new Error('Spatial launch cancelled'); error.cancelled = true; finish(reject, error); };
+      if (cancellable) pendingLaunchWaits.add(cancel);
+      timer = setTimer(() => { const error = new Error(message); error.stageTimeout = true; finish(reject, error); }, milliseconds);
+      Promise.resolve(operation).then((value) => {
+        if (!finish(resolve, value)) { try { void onLate?.(value); } catch (_) { /* Late cleanup must not reopen the view. */ } }
+      }, (error) => { finish(reject, error); });
+    });
+  }
+  function stopLease(lease) {
+    if (!lease) return Promise.resolve();
+    if (lease.cleanup) return lease.cleanup;
+    let operation;
+    try { operation = lease.instance?.stop?.(); } catch (_) { operation = undefined; }
+    lease.cleanup = bounded(operation, stopTimeout, '空间定位结束等待超时。', {cancellable: false}).catch(() => {});
+    return lease.cleanup;
+  }
   const sameSource = (source) => {
     if (!source || !expectedSource) return !source;
     try { return new URL(source, document.baseURI).href === new URL(expectedSource, document.baseURI).href; }
@@ -37,7 +64,7 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
     session.hidden = !active; viewer.hidden = active;
     startButton.disabled = !prepared || !viewer.loaded || !secure() || !supported() || active || !!stopping;
     startButton.textContent = mode === 'tabletop' ? '开始桌面 AR' : '开始等身参观';
-    retryButton.hidden = phase !== 'error'; progress.hidden = phase !== 'loading';
+    retryButton.hidden = phase !== 'error' || engineFailure; progress.hidden = phase !== 'loading';
     placeButton.disabled = !engine?.getState?.().placementReady || phase === 'placed';
     resetButton.disabled = !['placed', 'lost'].includes(phase);
     title.textContent = mode === 'tabletop' ? '桌面上的饮料产线' : '走进饮料产线';
@@ -98,28 +125,40 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
   async function open(selectedMode = 'lifesize') {
     if (isOpen()) return;
     mode = selectedMode === 'tabletop' ? 'tabletop' : 'lifesize';
-    revision += 1; automaticRetries = 0; lastFocus = document.activeElement;
+    revision += 1; automaticRetries = 0; engineFailure = false; lastFocus = document.activeElement;
     phase = prepared && viewer.loaded ? 'preview' : 'loading';
     onOpen(); render(); closeButton.focus?.(); await prepare();
   }
-  async function stopSession(message = '空间参观已结束，可重新扫描地面或返回展台。') {
+  async function stopSession(message = '空间参观已结束，可重新扫描地面或返回展台。', {failure = false} = {}) {
     if (stopping) return stopping;
     revision += 1;
-    const previous = engine; engine = null;
-    phase = 'stopping'; render();
-    stopping = (async () => {
-      try { await previous?.stop?.(); }
-      catch (_) { /* Host camera restoration still belongs to explicit close. */ }
-      finally { active = false; stopping = null; if (isOpen()) { showReady(); text(message); } }
-    })();
-    return stopping;
+    for (const cancel of [...pendingLaunchWaits]) cancel();
+    const previous = engineLease; engine = null; engineLease = null;
+    active = false; engineFailure = failure;
+    phase = failure ? 'error' : 'stopping'; text(message); render();
+    // Invoke stop synchronously to release camera tracks before the host resumes.
+    const cleanup = stopLease(previous);
+    const operation = Promise.resolve().then(async () => {
+      try { await cleanup; }
+      finally {
+        if (stopping === operation) stopping = null;
+        if (isOpen()) {
+          showReady();
+          if (failure) { phase = 'error'; engineFailure = true; }
+          text(message); render();
+        }
+      }
+    });
+    stopping = operation;
+    render();
+    return operation;
   }
   async function close() {
     if (!isOpen()) return true;
     cancelPreview();
-    await stopSession();
-    if (!isOpen()) return true;
+    const cleanup = stopSession();
     revision += 1; phase = 'closed'; viewer.pause?.(); render(); onClose(); lastFocus?.focus?.();
+    await cleanup;
     return true;
   }
   async function launch() {
@@ -131,29 +170,50 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
       try { permissionRequests.push(Promise.resolve(EventType.requestPermission())); }
       catch (_) { permissionRequests.push(Promise.resolve('denied')); }
     }
-    const token = ++revision;
-    active = true; phase = 'engine-loading'; text('正在加载本站空间定位引擎，请允许相机和所需运动权限。'); render();
-    let created;
+    const token = ++revision; engineFailure = false;
+    active = true; phase = 'engine-loading'; panel.dataset.engineStage = 'permission'; text('正在加载本站空间定位引擎，请允许相机和所需运动权限。'); render();
+    let created, lease, stage = 'permission', originalError = '';
     try {
-      const permissions = await Promise.all(permissionRequests);
+      const permissions = await bounded(Promise.all(permissionRequests), permissionTimeout,
+        '运动与方向权限等待超时，请完成权限选择后重新开始。');
       if (revision !== token || !isOpen()) return;
       if (permissions.some(value => value !== 'granted')) {
         await stopSession('请允许运动与方向权限后重新开始空间参观。'); return;
       }
-      created = await engineFactory({ canvas, modelUrl: metadata.src, scale: mode === 'tabletop' ? .05 : 1,
+      stage = 'import'; panel.dataset.engineStage = stage;
+      text('正在下载空间定位启动模块…');
+      created = await bounded(engineFactory({ canvas, modelUrl: metadata.src, scale: mode === 'tabletop' ? .05 : 1,
         onState: (state) => {
           if (revision !== token || !isOpen()) return;
+          if (state.stage) panel.dataset.engineStage = state.stage;
           phase = state.phase; text(state.message); render();
+          if (state.phase === 'error') {
+            originalError = state.message || '空间定位启动失败，请重新开始。';
+            void stopSession(originalError, {failure: true});
+          }
         },
-      });
-      if (revision !== token || !isOpen()) { await created.stop(); return; }
-      engine = created;
-      await engine.start();
-      if (revision !== token || !isOpen()) { await created.stop(); return; }
+      }), factoryTimeout, '空间定位启动模块下载超时，请检查网络后重新开始。',
+      {onLate: (value) => stopLease({instance: value})});
+      lease = {instance: created};
+      if (revision !== token || !isOpen()) { void stopLease(lease); return; }
+      engine = created; engineLease = lease; stage = 'start'; panel.dataset.engineStage = stage;
+      const startup = engine.start();
+      if (revision !== token || !isOpen()) {
+        Promise.resolve(startup).catch(() => {}); void stopLease(lease); return;
+      }
+      const started = await bounded(startup, engineStartTimeout,
+        '空间定位启动超时，请重新开始；仍未能启动时可返回实景展示。');
+      if (revision !== token || !isOpen()) { void stopLease(lease); return; }
+      if (started === false || phase === 'error') {
+        await stopSession(originalError || engine.getState?.().message || '空间定位未能启动，请重新开始。', {failure: true}); return;
+      }
       render();
     } catch (error) {
-      if (revision !== token || !isOpen()) { await created?.stop?.(); return; }
-      await stopSession('空间定位暂未能启动，请重试或返回实景展示。');
+      if (revision !== token || !isOpen()) { void stopLease(lease); return; }
+      const detail = errorInfo({sourceError: error});
+      const stageMessage = stage === 'import' ? '空间定位未能启动：启动模块加载失败' : stage === 'permission' ? '运动与方向权限未就绪' : '空间定位暂未能启动';
+      const message = originalError || (error.stageTimeout ? error.message : `${stageMessage}${detail.http ? `（HTTP ${detail.http}）` : ''}，请重试或返回实景展示。`);
+      await stopSession(message, {failure: true});
     }
   }
   openButton.addEventListener('click', () => void open());
@@ -178,7 +238,7 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
     const source = detail.url || detail.src || detail.sourceError?.response?.url || detail.sourceError?.target?.responseURL;
     if (source && !sameSource(source)) return;
     const info = errorInfo(detail);
-    previewLoading = false; prepared = false;
+    previewLoading = false; prepared = false; engineFailure = false;
     panel.dataset.modelError = info.type;
     panel.dataset.modelHttp = info.http ? String(info.http) : '';
     if (info.network && automaticRetries < 1) {

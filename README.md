@@ -1,6 +1,6 @@
 # HACCP beverage line AR demonstration
 
-Public static customer demonstration, version 9. Files in this repository are the assets served by the demo.
+Public static customer demonstration, version 10. Files in this repository are the assets served by the demo.
 
 The app displays a preconfigured illustrative beverage line and HACCP example. It does not parse submitted files or generate engineering geometry using AI.
 
@@ -17,3 +17,5 @@ Version 7 improves hand-runtime loading, viewport-aware framing, landscape contr
 Version 8 preloads the selected compact model, bundles local Meshopt decoders and recovers failed life-size preview loads using a fresh request URL. Geometry is quantized with small measured error; original assets are retained.
 
 Version 9 shares the compact model between the entry and analysis pages, merges bitwise-identical vertices and retains the v8 appearance, topology and animations. It does not claim a major new cold-load speedup.
+
+Version 10 starts the entry camera request before model modules, waits for XR core initialization explicitly, bounds and cancels every startup stage, restores previews after failure, and fixes spatial control contrast. Physical phone AR acceptance remains pending.
