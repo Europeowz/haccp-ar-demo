@@ -1,7 +1,8 @@
 import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=6';
-import { setupWalkthrough } from './walkthrough.js?v=6';
+import { setupWalkthrough } from './walkthrough.js?v=7';
+import { fitCameraToBounds } from './camera-fit.js?v=7';
 
 // Switch these paths only after the corresponding local assets exist.
 const ASSETS = {
@@ -34,6 +35,9 @@ let handWanted = false;
 let handGeneration = 0;
 let dualAbort = null;
 let dualTimer = 0;
+let fittedRadius = 8;
+let framingRevision = 0;
+let tourFramingRevision = 0;
 const PART_COPY = {
   base: '承托瓶体并调整瓶口高度，让瓶口与灌装阀对齐。',
   bottle: '剖面展示瓶体与液位，便于理解灌装位置与容器关系。',
@@ -77,26 +81,63 @@ function setPlaying(value) {
   $('play-label').textContent = state.playing ? '暂停动作' : '播放动作';
   $('play-symbol').setAttribute('d', state.playing ? 'M8 5v14M16 5v14' : 'm9 5 10 7-10 7V5Z');
 }
-function frameModel() {
-  if (!state.loaded) return;
-  // The assembled and exploded units share one camera, so separation remains comparable.
-  viewer.cameraTarget = isEquipmentView() ? (partSpec?.cameraTarget || '0m 0.4m 0m') : ASSETS.target;
-  viewer.cameraOrbit = isEquipmentView() ? (partSpec?.cameraOrbit || '24deg 64deg 3.5m') : ASSETS.orbit;
-  viewer.fieldOfView = isEquipmentView() ? (partSpec?.fieldOfView || '32deg') : '32deg';
-  if (isEquipmentView() && partSpec?.bounds) {
-    const b = partSpec.bounds.exploded;
-    const size = b.max.map((value, index) => value - b.min[index]);
-    const aspect = Math.max(0.3, viewer.clientWidth / Math.max(1, viewer.clientHeight));
-    const angles = (partSpec.cameraOrbit || '').match(/-?[\d.]+deg/g)?.map((v) => parseFloat(v)) || [24, 64];
-    const theta = angles[0] * Math.PI / 180, phi = angles[1] * Math.PI / 180;
-    const width = size[0] * Math.cos(theta) + size[2] * Math.sin(theta);
-    const depth = size[2] * Math.cos(theta) + size[0] * Math.sin(theta);
-    const height = size[1] * Math.sin(phi) + depth * Math.cos(phi);
-    const radius = Math.max(height, width / aspect) / (2 * Math.tan(16 * Math.PI / 180)) * 1.06 + depth * 0.18;
-    viewer.cameraOrbit = `${angles[0]}deg ${angles[1]}deg ${Math.max(0.7, Math.min(8, radius))}m`;
-  }
-  if (reducedMotion.matches) viewer.jumpCameraToGoal?.();
+function viewerBounds(component) {
+  const size = component.getDimensions?.(), center = component.getBoundingBoxCenter?.();
+  if (!size || !center) return null;
+  const values = ['x', 'y', 'z'];
+  return { min: values.map(k => center[k] - size[k] / 2), max: values.map(k => center[k] + size[k] / 2) };
 }
+function syncSceneLayout() {
+  const wide = stage.clientWidth > stage.clientHeight;
+  const header = stage.querySelector('.topbar');
+  const dock = stage.querySelector('.bottom-dock');
+  const tools = stage.querySelector('.toolrail');
+  const detail = $('detail-panel');
+  let top = header.offsetTop + header.offsetHeight + 8;
+  let left = 8;
+  if (state.detail && !detail.hidden) {
+    if (wide) left = detail.offsetLeft + detail.offsetWidth + 12;
+    else top = Math.max(top, detail.offsetTop + detail.offsetHeight + 8);
+  }
+  const right = Math.max(8, stage.clientWidth - tools.offsetLeft + 8);
+  const bottom = dock.offsetHeight + 8;
+  const values = { top, left, right, bottom };
+  for (const [key, value] of Object.entries(values)) {
+    const next = `${Math.round(value)}px`;
+    if (stage.style.getPropertyValue(`--scene-${key}`) !== next) stage.style.setProperty(`--scene-${key}`, next);
+  }
+}
+async function frameModel(preserveAngles = false) {
+  syncSceneLayout();
+  if (!state.loaded) return;
+  const token = ++framingRevision;
+  let bounds = viewerBounds(viewer);
+  if (isEquipmentView() && partSpec?.bounds) {
+    const { assembled, exploded } = partSpec.bounds;
+    bounds = Object.fromEntries(['min', 'max'].map(key => [key, assembled[key].map((value, axis) => value + (exploded[key][axis] - value) * state.explosion)]));
+  }
+  if (!bounds) return;
+  const orbit = preserveAngles === true ? viewer.getCameraOrbit() : null;
+  const angles = (isEquipmentView() ? partSpec?.cameraOrbit : ASSETS.orbit)?.match(/-?[\d.]+deg/g)?.map(parseFloat) || [28, 60];
+  viewer.fieldOfView = isEquipmentView() ? (partSpec?.fieldOfView || '32deg') : '32deg';
+  await viewer.updateComplete;
+  if (token !== framingRevision || !state.loaded) return;
+  viewer.jumpCameraToGoal?.();
+  // getFieldOfView is the effective vertical FOV; model-viewer adjusts it for
+  // narrow viewports. Using the attribute's nominal value would over-zoom out.
+  const fit = fitCameraToBounds({ bounds, aspect: viewer.clientWidth / Math.max(1, viewer.clientHeight),
+    theta: orbit?.theta ?? angles[0] * Math.PI / 180, phi: orbit?.phi ?? angles[1] * Math.PI / 180,
+    fieldOfView: viewer.getFieldOfView?.() || 32, padding: 1.10 });
+  fittedRadius = fit.radius;
+  viewer.setAttribute('max-camera-orbit', `auto 88deg ${Math.max(8, fit.radius * 5)}m`);
+  viewer.cameraTarget = `${fit.target.x}m ${fit.target.y}m ${fit.target.z}m`;
+  viewer.cameraOrbit = `${fit.theta}rad ${fit.phi}rad ${fit.radius}m`;
+  await viewer.updateComplete;
+  if (token !== framingRevision || !state.loaded) return;
+  viewer.jumpCameraToGoal?.();
+  viewer.dataset.fittedRadius = String(fit.radius);
+}
+
 function inspectMaterials() {
   materials = [];
   for (const material of viewer.model?.materials || []) {
@@ -281,7 +322,7 @@ async function prepareParts() {
 function applyZoom(factor) {
   if (!state.loaded || !Number.isFinite(factor) || factor <= 0) return;
   const orbit = viewer.getCameraOrbit();
-  const radius = Math.max(state.detailScope === 'valve' && state.detail ? 0.65 : 0.3, Math.min(8, orbit.radius / Math.max(0.7, Math.min(1.4, factor))));
+  const radius = Math.max(state.detailScope === 'valve' && state.detail ? 0.65 : 0.3, Math.min(Math.max(8, fittedRadius * 5), orbit.radius / Math.max(0.7, Math.min(1.4, factor))));
   viewer.cameraOrbit = `${orbit.theta}rad ${orbit.phi}rad ${radius}m`;
   viewer.jumpCameraToGoal?.();
 }
@@ -294,6 +335,7 @@ function applyRotate({ azimuthDelta, polarDelta }) {
 }
 function applyExplosion(value, syncHands = true) {
   if (!isEquipmentView() || !Number.isFinite(value)) return;
+  const changed = Math.abs(state.explosion - value) > 0.00001;
   state.explosion = Math.max(0, Math.min(1, value));
   const percent = Math.round(state.explosion * 100);
   $('explode-range').value = String(percent);
@@ -308,6 +350,7 @@ function applyExplosion(value, syncHands = true) {
   }
   if (syncHands) handController?.setExplode(state.explosion);
   updateParts();
+  if (changed && state.loaded) void frameModel(true);
 }
 function setExplosion(value, syncHands = true) {
   cancelAnimationFrame(explosionFrame);
@@ -464,7 +507,7 @@ async function startHands() {
   stage.classList.add('hands-active');
   requestAnimationFrame(frameModel);
   try {
-    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=6'), import('./dual-camera.js?v=6')]);
+    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=7'), import('./dual-camera.js?v=6')]);
     if (token !== handGeneration || !handWanted) return;
     let latestMessage = '', frontVideo = null, dualVerified = false;
     const controller = new HandGestureController({
@@ -529,6 +572,16 @@ function refreshAR() {
   $('native-ar').title = '通过本站空间定位将示意产线放在桌面，无需 Google 服务';
 }
 
+let mainPrepared = false;
+async function ensureMainModel() {
+  if (mainPrepared || caseId !== demoCase.id) return;
+  mainPrepared = true;
+  await customElements.whenDefined('model-viewer');
+  if (ASSETS.poster) viewer.poster = ASSETS.poster;
+  viewer.src = ASSETS.line;
+  if (viewer.loaded) viewer.dispatchEvent(new Event('load'));
+}
+
 const walkthrough = setupWalkthrough({
   panel: $('walkthrough-panel'), viewer: $('walkthrough-viewer'), openButton: $('walkthrough-open'),
   closeButton: $('walkthrough-close'), startButton: $('walkthrough-start'), retryButton: $('walkthrough-retry'),
@@ -541,6 +594,7 @@ const walkthrough = setupWalkthrough({
   },
   onClose: () => {
     tourTouch.disable();
+    void ensureMainModel();
     stage.inert = false; stage.removeAttribute('aria-hidden');
     if (!document.hidden) void window.ExhibitCamera?.resume();
     setPlaying(!reducedMotion.matches && !document.hidden && !state.detail);
@@ -569,25 +623,29 @@ const tourTouch = new TouchStructureController({
     tourViewer.jumpCameraToGoal?.();
   },
 });
-function updateTourView() {
+async function updateTourView() {
   if (tourPanel.hidden || !tourViewer.loaded || walkthrough.getState().active) { tourTouch.disable(); walkthrough.resize(); return; }
+  const token = ++tourFramingRevision;
   const rotated = tourPanel.classList.contains('force-landscape') && innerHeight > innerWidth;
   if (rotated) { tourViewer.removeAttribute('camera-controls'); tourTouch.enable(); }
   else { tourTouch.disable(); tourViewer.setAttribute('camera-controls', ''); }
-  const metadata = walkthrough.getState().metadata;
-  if (metadata?.bounds) {
-    const size = metadata.bounds.max.map((n, i) => n - metadata.bounds.min[i]);
-    const aspect = Math.max(.3, tourViewer.clientWidth / Math.max(1, tourViewer.clientHeight));
-    const theta = 28 * Math.PI / 180, phi = 65 * Math.PI / 180;
-    const width = size[0] * Math.cos(theta) + size[2] * Math.sin(theta);
-    const depth = size[2] * Math.cos(theta) + size[0] * Math.sin(theta);
-    const height = size[1] * Math.sin(phi) + depth * Math.cos(phi);
-    const radius = Math.max(height, width / aspect) / (2 * Math.tan(19 * Math.PI / 180)) * 1.07 + depth * .2;
-    tourViewer.fieldOfView = '38deg';
-    tourViewer.cameraOrbit = `28deg 65deg ${radius}m`;
-    tourViewer.jumpCameraToGoal?.();
-  }
+  const bounds = walkthrough.getState().metadata?.bounds || viewerBounds(tourViewer);
+  if (!bounds) return;
+  tourViewer.fieldOfView = '38deg';
+  await tourViewer.updateComplete;
+  if (token !== tourFramingRevision || tourPanel.hidden || walkthrough.getState().active) return;
+  tourViewer.jumpCameraToGoal?.();
+  const fit = fitCameraToBounds({ bounds, aspect: tourViewer.clientWidth / Math.max(1, tourViewer.clientHeight),
+    theta: 28 * Math.PI / 180, phi: 65 * Math.PI / 180,
+    fieldOfView: tourViewer.getFieldOfView?.() || 38, padding: 1.10 });
+  tourViewer.setAttribute('max-camera-orbit', `auto 90deg ${fit.radius * 5}m`);
+  tourViewer.cameraTarget = `${fit.target.x}m ${fit.target.y}m ${fit.target.z}m`;
+  tourViewer.cameraOrbit = `${fit.theta}rad ${fit.phi}rad ${fit.radius}m`;
+  await tourViewer.updateComplete;
+  if (token !== tourFramingRevision || tourPanel.hidden || walkthrough.getState().active) return;
+  tourViewer.jumpCameraToGoal?.();
 }
+
 setupOrientation({ stage: tourPanel, button: $('tour-orientation'), fullscreenTarget: document.documentElement,
   onChange: () => requestAnimationFrame(updateTourView) });
 tourViewer.addEventListener('load', updateTourView);
@@ -713,12 +771,23 @@ if (caseId !== demoCase.id) {
   selectProcess(state.selected, false);
   void prepareParts();
   if (new URLSearchParams(location.search).get('tour') === 'lifesize') void walkthrough.open();
-  await customElements.whenDefined('model-viewer');
-  if (ASSETS.poster) viewer.poster = ASSETS.poster;
-  if (viewer.getAttribute('src') !== ASSETS.line) viewer.src = ASSETS.line;
-  if (viewer.loaded) {
-    // The asset may already be ready before this module finishes registration.
-    viewer.dispatchEvent(new Event('load'));
-  }
+  else void ensureMainModel();
 }
-
+// Observe the real drawing area, including permission/fullscreen transitions
+// and appearance of a tool panel, instead of assuming a phone's screen ratio.
+if (globalThis.ResizeObserver) {
+  let layoutFrame = 0;
+  const scheduleLayout = () => {
+    if (layoutFrame) return;
+    layoutFrame = requestAnimationFrame(() => {
+      layoutFrame = 0;
+      syncSceneLayout();
+      if (state.loaded && !stage.inert) void frameModel();
+      void updateTourView();
+    });
+  };
+  const layoutObserver = new ResizeObserver(scheduleLayout);
+  layoutObserver.observe(viewer);
+  layoutObserver.observe(tourViewer);
+  for (const element of [stage, stage.querySelector('.bottom-dock'), $('detail-panel')]) layoutObserver.observe(element);
+}

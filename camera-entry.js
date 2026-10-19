@@ -4,6 +4,7 @@
   if (window.ExhibitCamera) return;
   const parameters = new URLSearchParams(location.search);
   const validCase = (parameters.get('case') || 'water') === 'water';
+  const inWeChat = /MicroMessenger/i.test(navigator.userAgent || '');
   const subscribers = new Set();
   let elements = null, generation = 0, wanted = false, stream = null, pending = null;
   let initialized = false, suspended = false, resumeOnVisible = false, resolveReady;
@@ -32,7 +33,7 @@
     if (elements.retry) {
       elements.retry.hidden = opening || ['insecure', 'unsupported', 'policy'].includes(state.reason);
       elements.retry.disabled = false;
-      elements.retry.textContent = state.reason === 'playback' ? '继续 AR' : '重试 AR';
+      elements.retry.textContent = inWeChat && state.phase === 'permission' ? '继续 AR 体验' : state.reason === 'playback' ? '继续 AR' : '重试 AR';
     }
     if (elements.button) {
       elements.button.setAttribute('aria-pressed', String(state.mode === '3d'));
@@ -77,7 +78,9 @@
     if (token !== generation || !wanted) return false;
     clearSession();
     const permission = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
-    const message = permission ? 'AR 需要相机权限。请在地址栏的网站权限中允许相机，再重试 AR。'
+    const message = permission ? (inWeChat
+      ? '请允许微信中本页面的相机请求，并确认手机设置已允许微信使用相机。仍无授权提示时，可从微信右上角菜单使用系统浏览器打开此链接。'
+      : 'AR 需要相机权限。请在地址栏的网站权限中允许相机，再重试 AR。')
       : error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError'
         ? '未检测到可用相机，暂时无法呈现实景。可以切换 3D 浏览。'
         : error?.name === 'NotReadableError'
@@ -104,7 +107,9 @@
     }
     if (!navigator.mediaDevices?.getUserMedia) {
       clearSession();
-      publish('error', '当前浏览器未提供 AR 相机接口，请使用支持相机权限的手机浏览器打开 HTTPS 链接。', 'unsupported'); return false;
+      publish('error', inWeChat
+        ? '当前微信环境未提供网页相机接口。请从微信右上角菜单使用系统浏览器打开此 HTTPS 链接，或切换 3D。'
+        : '当前浏览器未提供 AR 相机接口，请使用支持相机权限的手机浏览器打开 HTTPS 链接。', 'unsupported'); return false;
     }
     const playbackStream = state.reason === 'playback' ? stream : null;
     wanted = true;

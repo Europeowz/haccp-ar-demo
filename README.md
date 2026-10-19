@@ -1,6 +1,6 @@
 # HACCP beverage line AR demonstration
 
-Public static customer demonstration, version 6. Files in this repository are the assets served by the demo.
+Public static customer demonstration, version 7. Files in this repository are the assets served by the demo.
 
 The app displays a preconfigured illustrative beverage line and HACCP example. It does not parse submitted files or generate engineering geometry using AI.
 
@@ -11,3 +11,5 @@ The original 8th Wall XR Engine binary 1.0.0 is included unchanged under its lim
 Three.js and other bundled libraries retain their original notices. No repository-wide license grants rights that override those third party licenses.
 
 Camera frames are processed on device. Physical dual-camera operation and ground tracking depend on the phone and browser.
+
+Version 7 improves hand-runtime loading, viewport-aware framing, landscape controls and WeChat permission guidance. Browser simulation is not physical-phone acceptance.

@@ -73,9 +73,52 @@ function loadLibrary() {
   if (!libraryPromise) {
     const url = new URL('vision_bundle.js', ASSET_ROOT);
     if (importAttempts++) url.searchParams.set('retry', String(importAttempts));
-    libraryPromise = import(url.href).catch(error => { libraryPromise = null; throw error; });
+    const pending = import(url.href).catch(error => {
+      if (libraryPromise === pending) libraryPromise = null;
+      throw error;
+    });
+    libraryPromise = pending;
   }
   return libraryPromise;
+}
+
+/** Bound APIs that cannot themselves be aborted (import, MediaPipe, camera). */
+function waitForStage(operation, { signal, stage, timeout, onLateResolve } = {}) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      signal.removeEventListener('abort', cancelled);
+      if (error && error.name !== 'AbortError' && !error.stage) error.stage = stage;
+      error ? reject(error) : resolve(value);
+    };
+    const cancelled = () => done(new DOMException('Cancelled', 'AbortError'));
+    const timer = setTimeout(() => {
+      const error = new Error('Startup stage timed out');
+      error.name = 'TimeoutError';
+      done(error);
+    }, timeout);
+    signal.addEventListener('abort', cancelled, { once: true });
+    if (signal.aborted) { cancelled(); return; }
+    try {
+      Promise.resolve(typeof operation === 'function' ? operation() : operation).then(value => {
+        if (settled) { try { onLateResolve?.(value); } catch {} }
+        else done(null, value);
+      }, error => done(error));
+    } catch (error) { done(error); }
+  });
+}
+
+async function downloadBuffer(url, signal) {
+  const response = await fetch(url, { signal });
+  if (!response.ok) {
+    const error = new Error('Asset request failed');
+    error.httpStatus = response.status;
+    throw error;
+  }
+  return response.arrayBuffer();
 }
 
 function waitForVideo(video, signal) {
@@ -91,7 +134,11 @@ function waitForVideo(video, signal) {
     const ready = () => video.videoWidth && done();
     const failed = () => done(new Error('Camera video unavailable'));
     const cancelled = () => done(new DOMException('Cancelled', 'AbortError'));
-    const timer = setTimeout(failed, 10000);
+    const timer = setTimeout(() => {
+      const error = new Error('Camera video timed out');
+      error.name = 'TimeoutError';
+      done(error);
+    }, 10000);
     video.addEventListener('loadeddata', ready);
     video.addEventListener('error', failed);
     signal.addEventListener('abort', cancelled, { once: true });
@@ -134,6 +181,14 @@ function cameraErrorMessage(error) {
   return '隔空手势未能启动，请重试或使用触屏缩放与拆装。';
 }
 
+function startupErrorMessage(error) {
+  const label = { model: '手势模型下载', library: '手势运行库加载', runtime: '手势运行库下载', initialization: '手势识别初始化', camera: '前置相机连接', playback: '前置相机画面加载' }[error?.stage];
+  if (error?.name === 'TimeoutError') return `${label || '隔空手势启动'}超时，请重试；仍可使用触屏缩放与拆装。`;
+  if (['camera', 'playback'].includes(error?.stage) || !label) return cameraErrorMessage(error);
+  const status = Number.isFinite(error.httpStatus) ? `（HTTP ${error.httpStatus}）` : '';
+  return `${label}失败${status}，请重试；仍可使用触屏缩放与拆装。`;
+}
+
 export class HandGestureController {
   constructor({ onZoom, onExplode, onStatus, onPreview } = {}) {
     this.onZoom = onZoom;
@@ -169,13 +224,13 @@ export class HandGestureController {
     this._gesture = createGestureState(explode);
   }
 
-  _status(state, message, hands, force = false) {
+  _status(state, message, hands, force = false, stage) {
     const now = performance.now();
     const key = `${state}:${message}:${hands ?? ''}`;
     if (!force && this._statusKey === key && now - this._statusAt < 1200) return;
     this._statusKey = key;
     this._statusAt = now;
-    notify(this.onStatus, { state, message, ...(hands === undefined ? {} : { hands }) });
+    notify(this.onStatus, { state, message, ...(hands === undefined ? {} : { hands }), ...(stage ? { stage } : {}) });
   }
 
   start({ stream = null, ownsStream = true, mirrored = true, facingMode = 'user' } = {}) {
@@ -185,7 +240,7 @@ export class HandGestureController {
     const abort = new AbortController();
     this._abort = abort;
     this._usingSharedStream = Boolean(stream && ownsStream === false);
-    this._status('loading', '正在加载本地手势模型…', 0, true);
+    this._status('loading', '正在并行加载本地手势模型与运行库…', 0, true, 'model');
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', this._onVisibility);
       window.addEventListener('pagehide', this._onPageHide);
@@ -228,42 +283,53 @@ export class HandGestureController {
       // Attach ownership and ended handling before asynchronous runtime loading.
       // stop() can therefore cancel immediately without harming a shared camera.
       if (provided) adoptStream();
-      const [{ FilesetResolver, HandLandmarker }, response] = await Promise.all([
-        loadLibrary(), fetch(new URL('hand_landmarker.task', ASSET_ROOT), { signal: abort.signal })
-      ]);
+      const stageOptions = (stage, timeout, onLateResolve) => ({ signal: abort.signal, stage, timeout, onLateResolve });
+      // Start the large model body immediately. Resolve/download WASM on an
+      // independent branch, rather than waiting for the entire model first.
+      const modelPromise = waitForStage(downloadBuffer(new URL('hand_landmarker.task', ASSET_ROOT), abort.signal), stageOptions('model', 45000));
+      const runtimePromise = (async () => {
+        const pendingLibrary = loadLibrary();
+        let library;
+        try {
+          library = await waitForStage(pendingLibrary, stageOptions('library', 20000));
+        } catch (error) {
+          if (error?.name === 'TimeoutError' && libraryPromise === pendingLibrary) libraryPromise = null;
+          throw error;
+        }
+        if (!current()) throw new DOMException('Cancelled', 'AbortError');
+        this._status('loading', '正在加载本地手势运行库，与模型同时下载…', 0, true, 'runtime');
+        const fileset = await waitForStage(() => library.FilesetResolver.forVisionTasks(new URL('wasm/', ASSET_ROOT).href.replace(/\/$/, '')), stageOptions('runtime', 20000));
+        if (!current()) throw new DOMException('Cancelled', 'AbortError');
+        const wasm = await waitForStage(downloadBuffer(fileset.wasmBinaryPath, abort.signal), stageOptions('runtime', 45000));
+        return { fileset, wasm, HandLandmarker: library.HandLandmarker };
+      })();
+      const [modelBuffer, { fileset, wasm, HandLandmarker }] = await Promise.all([modelPromise, runtimePromise]);
       if (!current()) return false;
-      if (!response.ok) throw new Error('Hand model unavailable');
-      const model = new Uint8Array(await response.arrayBuffer());
-      if (!current()) return false;
-      const fileset = await FilesetResolver.forVisionTasks(new URL('wasm/', ASSET_ROOT).href.replace(/\/$/, ''));
-      if (!current()) return false;
-      // Existing local preview servers may serve .wasm as octet-stream. This
-      // local Blob provides the required streaming MIME without any CDN request.
-      const wasmResponse = await fetch(fileset.wasmBinaryPath, { signal: abort.signal });
-      if (!wasmResponse.ok) throw new Error('Hand runtime unavailable');
-      const wasm = await wasmResponse.arrayBuffer();
-      if (!current()) return false;
+      const model = new Uint8Array(modelBuffer);
+      // Local preview servers may serve WASM as octet-stream. Preserve the
+      // streaming MIME with a local Blob, without fetching from a CDN.
       wasmUrl = URL.createObjectURL(new Blob([wasm], { type: 'application/wasm' }));
       this._wasmUrls.add(wasmUrl);
-      detector = await HandLandmarker.createFromOptions({ ...fileset, wasmBinaryPath: wasmUrl }, {
+      this._status('loading', '模型与运行库已加载，正在初始化手势识别…', 0, true, 'initialization');
+      detector = await waitForStage(() => HandLandmarker.createFromOptions({ ...fileset, wasmBinaryPath: wasmUrl }, {
         baseOptions: { modelAssetBuffer: model, delegate: 'CPU' },
         runningMode: 'VIDEO', numHands: 2,
         minHandDetectionConfidence: 0.65,
         minHandPresenceConfidence: 0.65,
         minTrackingConfidence: 0.65
-      });
+      }), stageOptions('initialization', 30000, value => value?.close?.()));
       URL.revokeObjectURL(wasmUrl);
       this._wasmUrls.delete(wasmUrl);
       wasmUrl = null;
       if (!current()) { detector.close(); detector = null; return false; }
       this._detector = detector;
       detectorOwned = true;
-      this._status('requesting', provided ? '正在连接指定的视频源。' : '请允许前置相机，将手放入画面。', 0, true);
+      this._status('requesting', provided ? '正在连接指定的视频源。' : '请允许前置相机，将手放入画面。', 0, true, 'camera');
       if (!provided) {
-        stream = await navigator.mediaDevices.getUserMedia({
+        stream = await waitForStage(() => navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { facingMode: { exact: facingMode }, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 18, max: 20 } }
-        });
+        }), stageOptions('camera', 30000, stopTracks));
       }
       if (!current()) return false;
       // Never silently replace the requested front camera with the rear camera.
@@ -283,9 +349,9 @@ export class HandGestureController {
       video.srcObject = stream;
       this._video = video;
       notify(this.onPreview, video);
-      await waitForPlayback(video.play(), abort.signal);
+      await waitForStage(() => waitForPlayback(video.play(), abort.signal), stageOptions('playback', 10000));
       if (!current()) return false;
-      await waitForVideo(video, abort.signal);
+      await waitForStage(() => waitForVideo(video, abort.signal), stageOptions('playback', 10000));
       if (!current()) return false;
       this._running = true;
       this._gesture = createGestureState(this._gesture.explode);
@@ -297,7 +363,10 @@ export class HandGestureController {
     } catch (error) {
       if (current() && error?.name !== 'AbortError') {
         this._releaseResources();
-        this._status('error', cameraErrorMessage(error), 0, true);
+        // Abort the other parallel download as soon as one branch fails. A
+        // timeout remains a retryable error rather than an indefinite spinner.
+        abort.abort();
+        this._status('error', startupErrorMessage(error), 0, true, error?.stage);
       }
       return false;
     } finally {
