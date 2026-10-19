@@ -1,11 +1,11 @@
 /** Local, markerless SLAM. The preview component never launches a native AR app. */
 export function setupWalkthrough({ panel, viewer, openButton, closeButton, startButton, retryButton,
   status, dimensions, progress, canvas, session, placeButton, resetButton, exitButton, hudStatus,
-  title, onOpen = () => {}, onClose = () => {}, secure = () => window.isSecureContext,
+  title, diagnostics, onOpen = () => {}, onClose = () => {}, secure = () => window.isSecureContext,
   supported = () => /Android|iPhone|iPad/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1,
   loadMetadata = () => fetch('assets/line-lifesize.json?v=9').then((r) => { if (!r.ok) { const error = new Error('Metadata unavailable'); error.status = r.status; throw error; } return r.json(); }),
   whenDefined = () => customElements.whenDefined('model-viewer'),
-  engineFactory = async (options) => (await import('./spatial-engine.js?v=10')).createSpatialEngine(options),
+  engineFactory = async (options) => (await import('./spatial-engine.js?v=11')).createSpatialEngine(options),
   factoryTimeout = 15000, engineStartTimeout = 60000, permissionTimeout = 20000, stopTimeout = 3000,
   setTimer = (callback, delay) => globalThis.setTimeout?.(callback, delay), clearTimer = (id) => globalThis.clearTimeout?.(id),
 }) {
@@ -66,7 +66,7 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
     startButton.textContent = mode === 'tabletop' ? '开始桌面 AR' : '开始等身参观';
     retryButton.hidden = phase !== 'error' || engineFailure; progress.hidden = phase !== 'loading';
     placeButton.disabled = !engine?.getState?.().placementReady || phase === 'placed';
-    resetButton.disabled = !['placed', 'lost'].includes(phase);
+    resetButton.disabled = !active || !engine || !['scanning', 'ready', 'placed', 'lost'].includes(phase);
     title.textContent = mode === 'tabletop' ? '桌面上的饮料产线' : '走进饮料产线';
     if (metadata) {
       const scale = mode === 'tabletop' ? .05 : 1;
@@ -171,6 +171,7 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
       catch (_) { permissionRequests.push(Promise.resolve('denied')); }
     }
     const token = ++revision; engineFailure = false;
+    if (diagnostics) diagnostics.textContent = '正在启动定位，等待本次会话结果。检查信息仅保留在当前页面。';
     active = true; phase = 'engine-loading'; panel.dataset.engineStage = 'permission'; text('正在加载本站空间定位引擎，请允许相机和所需运动权限。'); render();
     let created, lease, stage = 'permission', originalError = '';
     try {
@@ -186,6 +187,10 @@ export function setupWalkthrough({ panel, viewer, openButton, closeButton, start
         onState: (state) => {
           if (revision !== token || !isOpen()) return;
           if (state.stage) panel.dataset.engineStage = state.stage;
+          if (diagnostics) {
+            const source = state.placementSource === 'engine-ground' ? '引擎地平面' : state.placementSource === 'surface-hit' ? '表面命中' : '尚未确认';
+            diagnostics.textContent = `本页判断：${state.tracking ? '定位可用' : '定位未就绪'}；引擎：${state.trackingStatus || '等待结果'}；原因：${state.trackingReason || '等待结果'}；地面：${state.placementReady || state.placed ? source : '尚未确认'}。检查信息仅保留在当前页面。`;
+          }
           phase = state.phase; text(state.message); render();
           if (state.phase === 'error') {
             originalError = state.message || '空间定位启动失败，请重新开始。';

@@ -4,6 +4,7 @@ let runtimeSignal;
 let readyRuntime;
 let currentOwner = null;
 let instanceCount = 0;
+const unstableReasons = new Set(['INITIALIZING', 'RELOCALIZING', 'TOO_MUCH_MOTION', 'NOT_ENOUGH_TEXTURE']);
 
 function abortedError() { const error = new Error('Spatial startup cancelled'); error.name = 'AbortError'; return error; }
 function waitFor(promise, {signal, timeout = 0, message = 'Spatial loading timed out', onLate} = {}) {
@@ -108,10 +109,38 @@ function floorHit(hit) {
   return 1 - 2 * ((q.x / length) ** 2 + (q.z / length) ** 2) >= 0.85;
 }
 
+/** Absolute-scale SLAM defines its estimated ground at Y=0. Surface hit records are optional.
+ * This is the official ground-plane placement approach, gated by a real tracked metric pose.
+ * Use the same frame's projection and pose, rather than a stale Three.js world matrix.
+ */
+export function createGroundProjection(THREE) {
+  if (!THREE?.PerspectiveCamera || !THREE?.Raycaster || !THREE?.Plane || !THREE?.Vector3) return () => null;
+  const camera = new THREE.PerspectiveCamera(), raycaster = new THREE.Raycaster();
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), point = new THREE.Vector3();
+  return (_sceneCamera, reality) => {
+    if (reality?.trackingStatus !== 'NORMAL' || unstableReasons.has(reality.trackingReason)) return null;
+    const p = reality.position, q = reality.rotation, projection = reality.intrinsics;
+    if (!['x', 'y', 'z'].every(key => Number.isFinite(p?.[key])) || p.y < 0.15 || p.y > 3) return null;
+    if (!['x', 'y', 'z', 'w'].every(key => Number.isFinite(q?.[key]))) return null;
+    const length = Math.hypot(q.x, q.y, q.z, q.w);
+    if (length < 0.9 || length > 1.1 || projection?.length !== 16 || !Array.from(projection).every(Number.isFinite)) return null;
+    camera.position.set(p.x, p.y, p.z); camera.quaternion.set(q.x, q.y, q.z, q.w).normalize();
+    camera.projectionMatrix.fromArray(projection);
+    const determinant = camera.projectionMatrix.determinant();
+    if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-10) return null;
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); camera.updateMatrixWorld(true);
+    raycaster.setFromCamera({x: 0, y: 0}, camera);
+    if (raycaster.ray.direction.y >= -0.15 || !raycaster.ray.intersectPlane(plane, point)) return null;
+    const distance = point.distanceTo(camera.position);
+    if (!Number.isFinite(distance) || distance < 0.25 || distance > 8) return null;
+    return {source: 'engine-ground', position: {x: point.x, y: 0, z: point.z}, distance};
+  };
+}
+
 /** Injection points permit isolated lifecycle tests without real cameras or requests. */
 export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState = () => {},
   loadRuntime = localRuntime, now = () => performance.now(), startTimeout = 45000,
-  fetchModel = (...args) => fetch(...args),
+  fetchModel = (...args) => fetch(...args), scanFeedbackDelay = 12000,
 }) {
   if (!canvas || !modelUrl || !Number.isFinite(scale) || scale <= 0) throw new Error('Invalid spatial engine options');
   const name = `haccp-spatial-${++instanceCount}`;
@@ -121,12 +150,64 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
   let latestHit = null, hitAt = 0, lastUpdate = 0, startTimer = 0, settleStart = null;
   let currentStream = null, load = null, viewport = '', pendingScene = null;
   let startController = null;
+  let scanTimer = 0, scanSince = 0, resultAt = 0, resultSeen = false;
+  let projectGround = () => null, latestReality = null, normalSince = null;
   const resources = [];
   const emit = (phase, message, patch = {}) => {
     state = {...state, ...patch, phase, message};
     try { onState({...state}); } catch (error) { console.error('Spatial state subscriber failed', error); }
   };
   const live = token => wanted && token === generation;
+
+  function scanDiagnostic(overdue = false) {
+    const elapsed = Math.max(0, now() - scanSince, overdue ? scanFeedbackDelay : 0);
+    return {scanElapsedMs: elapsed, lastResultAgeMs: resultSeen ? Math.max(0, now() - resultAt) : null};
+  }
+  function scanFeedback(overdue = false) {
+    if (!wanted || !root) return;
+    if (resultSeen && now() - resultAt > 1000) {
+      latestHit = null; latestReality = null; normalSince = null;
+      root.visible = false; if (reticle) reticle.visible = false;
+      if (state.diagnostic !== 'stale-tracking-result') emit('lost', '空间定位结果暂停更新，请点“重新扫描”；仍无响应时退出后重试。',
+        {...scanDiagnostic(), tracking: false, placementReady: false, diagnostic: 'stale-tracking-result'});
+      return;
+    }
+    if ((state.placed && state.tracking) || state.placementReady) return;
+    const elapsed = now() - scanSince;
+    const delayed = overdue || elapsed >= scanFeedbackDelay;
+    let diagnostic, message;
+    if (!resultSeen) {
+      if (!delayed) return;
+      diagnostic = 'no-tracking-result';
+      message = '相机已启动，但暂未收到空间定位结果。请重新扫描；如仍无响应，请退出后重试。';
+    } else if (!state.tracking) {
+      const guidance = {
+        RELOCALIZING: ['relocalizing', '正在恢复空间定位，请缓慢回到刚才扫描的位置；仍无法恢复时点“重新扫描”。'],
+        TOO_MUCH_MOTION: ['too-much-motion', '手机移动过快，空间定位已暂停。请放慢移动并保持画面稳定。'],
+        NOT_ENOUGH_TEXTURE: ['not-enough-texture', '当前画面细节不足。请对准有接缝或纹理的地面，缓慢移动手机；仍无法识别时点“重新扫描”。'],
+      }[state.trackingReason];
+      if (guidance) [diagnostic, message] = guidance;
+      else {
+        diagnostic = delayed ? 'tracking-not-ready' : 'tracking-initializing';
+        message = delayed ? '空间定位尚未建立。请移向光线充足、有纹理的地面并缓慢移动，或点“重新扫描”再试。' :
+          state.phase === 'lost' ? '空间定位暂时丢失，请缓慢扫过刚才的地面，或点“重新扫描”。' :
+          '空间定位正在初始化，请对准有纹理的地面缓慢移动。';
+      }
+    } else {
+      diagnostic = delayed ? 'floor-not-found' : 'scanning-floor';
+      message = delayed ? '空间定位已建立，但尚未找到可放置的地面。请将手机向下倾斜，对准有纹理的地面并缓慢移动。' :
+        '空间定位已建立，正在寻找地面；请将取景中心对准地面。';
+    }
+    const phase = state.phase === 'lost' ? 'lost' : 'scanning';
+    if (state.diagnostic !== diagnostic || state.message !== message) emit(phase, message, {...scanDiagnostic(delayed), diagnostic});
+  }
+  function startScanFeedback() {
+    clearTimeout(scanTimer); scanTimer = 0;
+    if (!wanted || !root) return;
+    scanSince = now(); resultAt = 0; resultSeen = false;
+    const token = generation;
+    scanTimer = setTimeout(() => { scanTimer = 0; if (live(token)) scanFeedback(true); }, scanFeedbackDelay);
+  }
 
   function resize() {
     if (!canvas) return;
@@ -153,8 +234,10 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
     xrScene?.renderer?.renderLists?.dispose?.();
     xrScene?.renderer?.dispose?.();
     xrScene = null; latestHit = null; hitAt = 0; viewport = '';
+    projectGround = () => null; latestReality = null; normalSince = null;
   }
   function releaseEngine() {
+    clearTimeout(scanTimer); scanTimer = 0;
     observer?.disconnect?.(); observer = null;
     if (currentOwner === api) {
       try { deps?.XR8?.stop?.(); } catch (error) { console.warn('Spatial runtime stop failed', error); }
@@ -178,30 +261,50 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
     emit('error', message, {placementReady: false, placed: false, tracking: false});
   }
   function tracked(reality) {
-    return reality?.trackingStatus === 'NORMAL' && ['x', 'y', 'z'].every(key => Number.isFinite(reality.position?.[key]));
+    return reality?.trackingStatus === 'NORMAL' && !unstableReasons.has(reality.trackingReason) && ['x', 'y', 'z'].every(key => Number.isFinite(reality.position?.[key]));
   }
   function pickFloor() {
+    if (!tracked(latestReality)) return null;
+    let hits;
     try {
-      const hits = deps.XR8.XrController.hitTest(0.5, 0.5, []);
-      return hits?.filter(floorHit).sort((a, b) => (a.distance || 0) - (b.distance || 0))[0] || null;
+      hits = deps.XR8.XrController.hitTest(0.5, 0.5, []);
     } catch (_) { return null; }
+    if (!Array.isArray(hits)) return null;
+    const surface = hits.filter(floorHit).sort((a, b) => (a.distance || 0) - (b.distance || 0))[0];
+    if (surface) return {...surface, source: 'surface-hit'};
+    // A reported wall or invalid surface must not be replaced by a ground estimate.
+    if (hits.some(hit => ['DETECTED_SURFACE', 'ESTIMATED_SURFACE'].includes(hit?.type))) return null;
+    if (normalSince === null || now() - normalSince < 700) return null;
+    return projectGround(xrScene.camera, latestReality);
   }
   function update({processCpuResult} = {}) {
     if (!wanted || !root) return;
     const reality = processCpuResult?.reality;
+    latestReality = reality;
+    if (resultSeen && now() - resultAt > 500) normalSince = null;
+    if (reality) { resultSeen = true; resultAt = now(); }
+    state = {...state, trackingStatus: reality?.trackingStatus || 'UNAVAILABLE', trackingReason: reality?.trackingReason || (reality ? 'UNSPECIFIED' : 'NO_RESULT'), ...scanDiagnostic()};
     resize();
     if (!tracked(reality)) {
+      normalSince = null;
       root.visible = false;
       if (reticle) reticle.visible = false;
       latestHit = null;
       const wasTracked = state.tracking;
       if (wasTracked || state.placementReady) emit('lost', '空间定位暂时丢失，请对准有纹理的地面缓慢移动。', {tracking: false, placementReady: false});
+      scanFeedback();
       return;
     }
     const time = now();
+    if (normalSince === null) normalSince = time;
     const delta = lastUpdate ? Math.min(0.1, Math.max(0, (time - lastUpdate) / 1000)) : 0;
     lastUpdate = time;
     if (state.placed) {
+      if (state.placementSource === 'engine-ground' && time - normalSince < 700) {
+        root.visible = false;
+        if (state.diagnostic !== 'stabilizing') emit('lost', '空间定位正在恢复稳定，请缓慢移动手机。', {tracking: false, placementReady: false, diagnostic: 'stabilizing'});
+        return;
+      }
       root.visible = true;
       if (reticle) reticle.visible = false;
       if (!state.tracking || state.phase !== 'placed') emit('placed', '产线已放置，可以走近、绕行查看设备。', {tracking: true, placementReady: false});
@@ -214,10 +317,13 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
       if (latestHit) reticle.position.set(latestHit.position.x, latestHit.position.y + 0.005, latestHit.position.z);
     }
     if (latestHit) {
-      if (state.phase !== 'ready' || !state.tracking) emit('ready', '已找到水平地面，点“放置产线”后开始参观。', {placementReady: true, tracking: true});
+      if (state.phase !== 'ready' || !state.tracking || state.placementSource !== latestHit.source) emit('ready',
+        latestHit.source === 'engine-ground' ? '已估计地面位置，请确认落点在地面后点“放置产线”。' : '已找到水平地面，点“放置产线”后开始参观。',
+        {placementReady: true, tracking: true, diagnostic: 'floor-ready', placementSource: latestHit.source});
     } else if (state.phase !== 'scanning' || !state.tracking) {
       emit('scanning', '前后缓慢移动手机估计真实尺度，并将取景中心对准地面。', {placementReady: false, tracking: true});
     }
+    if (!latestHit) scanFeedback();
   }
   async function start() {
     if (wanted) return starting || true;
@@ -236,7 +342,8 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
       camera: '空间定位启动超时，请检查浏览器权限后重试。',
     };
     startTimer = setTimeout(() => { if (live(token)) fail(timeoutMessages[state.stage] || '空间参观准备超时，请返回后重试。'); }, startTimeout);
-    emit('loading', '正在准备空间参观权限…', {stage: 'permissions', placed: false, placementReady: false, tracking: false});
+    emit('loading', '正在准备空间参观权限…', {stage: 'permissions', placed: false, placementReady: false, tracking: false,
+      trackingStatus: 'UNAVAILABLE', trackingReason: 'INITIALIZING', diagnostic: 'waiting-for-tracking', scanElapsedMs: 0, lastResultAgeMs: null});
     // iOS requires these calls inside the user's click, before runtime/model loading awaits.
     const sensorPermissions = [];
     for (const EventType of [globalThis.DeviceMotionEvent, globalThis.DeviceOrientationEvent]) {
@@ -285,6 +392,7 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
             try {
               xrScene = XR8.Threejs.xrScene();
               if (!xrScene?.scene || !xrScene.camera) throw new Error('Spatial scene was not created');
+              projectGround = createGroundProjection(THREE);
               root = new THREE.Group(); root.visible = false;
               model = gltf.scene; model.scale.setScalar(scale); root.add(model); xrScene.scene.add(root);
               const sky = new THREE.HemisphereLight(0xe8f5ff, 0x7b8179, 2.3);
@@ -298,6 +406,7 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
               }
               lastUpdate = 0; viewport = ''; resize();
               emit('scanning', '前后缓慢移动手机估计真实尺度，并将取景中心对准地面。', {tracking: false});
+              startScanFeedback();
               clearTimeout(startTimer); startTimer = 0; settleStart?.(true); settleStart = null;
             } catch (_) { fail('空间场景初始化失败，请返回后重新尝试。'); }
           },
@@ -341,20 +450,27 @@ export async function createSpatialEngine({canvas, modelUrl, scale = 1, onState 
     emit('stopped', '空间参观已停止。', {placed: false, placementReady: false, tracking: false});
   }
   function place() {
-    if (!wanted || !root || !state.tracking || !state.placementReady || now() - hitAt > 500) return false;
+    if (!wanted || !root || !state.tracking || !state.placementReady) return false;
+    if (now() - hitAt > 500) {
+      latestHit = null; reticle.visible = false;
+      emit('scanning', '落点已过期，请保持手机缓慢移动，等待新的地面落点。', {placementReady: false});
+      return false;
+    }
     const hit = pickFloor();
     if (!hit) { latestHit = null; if (reticle) reticle.visible = false; emit('scanning', '请重新将取景中心对准水平地面。', {placementReady: false}); return false; }
     root.position.set(hit.position.x, hit.position.y, hit.position.z);
     root.rotation.y = Math.atan2(xrScene.camera.position.x - hit.position.x, xrScene.camera.position.z - hit.position.z);
     root.visible = true; reticle.visible = false; latestHit = null;
-    emit('placed', '产线已放置，可以走近、绕行查看设备。', {placed: true, placementReady: false});
+    emit('placed', '产线已放置，可以走近、绕行查看设备。', {placed: true, placementReady: false, placementSource: hit.source});
     return true;
   }
   function recenter() {
     if (!wanted || !deps || !root) return;
     root.visible = false; reticle.visible = false; latestHit = null; hitAt = 0;
+    latestReality = null; normalSince = null;
     deps.XR8.XrController.recenter();
-    emit('scanning', '定位已重置，请重新扫描地面并放置产线。', {placed: false, placementReady: false, tracking: false});
+    emit('scanning', '定位已重置，请重新扫描地面并放置产线。', {placed: false, placementReady: false, tracking: false, trackingStatus: 'UNAVAILABLE', trackingReason: 'RECENTER', diagnostic: 'recentered'});
+    startScanFeedback();
   }
   const api = {start, stop, place, recenter, resize, getState: () => ({...state})};
   return api;

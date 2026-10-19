@@ -1,7 +1,7 @@
 import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=6';
-import { setupWalkthrough } from './walkthrough.js?v=10';
+import { setupWalkthrough } from './walkthrough.js?v=11';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
 
 // Switch these paths only after the corresponding local assets exist.
@@ -587,7 +587,7 @@ const walkthrough = setupWalkthrough({
   closeButton: $('walkthrough-close'), startButton: $('walkthrough-start'), retryButton: $('walkthrough-retry'),
   status: $('walkthrough-status'), dimensions: $('walkthrough-dimensions'), progress: $('walkthrough-progress'),
   canvas: $('spatial-canvas'), session: $('spatial-session'), placeButton: $('spatial-place'),
-  resetButton: $('spatial-reset'), exitButton: $('spatial-exit'), hudStatus: $('spatial-status'), title: $('walkthrough-title'),
+  resetButton: $('spatial-reset'), exitButton: $('spatial-exit'), hudStatus: $('spatial-status'), title: $('walkthrough-title'), diagnostics: $('spatial-diagnostics'),
   onOpen: () => {
     stopHands(false); stopCamera(); setPlaying(false); touchController.disable(); stopFlowDrawing();
     stage.inert = true; stage.setAttribute('aria-hidden', 'true');

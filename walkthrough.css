@@ -22,7 +22,18 @@
 .spatial-top { top: max(12px, env(safe-area-inset-top)); align-items: start; }
 .spatial-bottom { bottom: max(12px, env(safe-area-inset-bottom)); flex-wrap: wrap; }
 .spatial-top p { max-width: 460px; margin: 0; padding: 10px 12px; background: #13323ddc; border: 1px solid #ffffff36; border-radius: 10px; font-size: 12px; line-height: 1.6; }
-.spatial-top > div, .spatial-bottom > div { display: flex; gap: 8px; flex-shrink: 0; }
+.spatial-top > .spatial-controls, .spatial-bottom > div { display: flex; gap: 8px; flex-shrink: 0; }
+.spatial-message { max-width: 460px; min-width: 0; }
+.spatial-diagnostics { margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #13323ddc; font-size: 10px; pointer-events: auto; }
+.spatial-diagnostics summary { cursor: pointer; min-height: 24px; display: flex; align-items: center; }
+.spatial-diagnostics output { display: block; max-width: 100%; padding: 4px 0; line-height: 1.7; overflow-wrap: anywhere; user-select: text; }
+.spatial-aim { display: none; position: absolute; left: 50%; top: 50%; width: 62px; height: 62px; transform: translate(-50%, -50%); border: 2px dashed #ffffffc9; border-radius: 50%; box-shadow: 0 0 0 1px #15343e88; pointer-events: none; }
+.spatial-aim::before, .spatial-aim::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; box-shadow: 0 0 2px #15343e; }
+.spatial-aim::before { width: 12px; height: 2px; }
+.spatial-aim::after { width: 2px; height: 12px; }
+.spatial-aim span { position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 4px 8px; background: #13323ddc; border-radius: 6px; font-size: 11px; }
+.walkthrough:is([data-phase='scanning'], [data-phase='lost']) .spatial-aim { display: block; }
+.walkthrough[data-phase='lost'] .spatial-aim { border-color: #f4c978; }
 .spatial-session button, .spatial-session a { pointer-events: auto; }
 .walkthrough .spatial-session button { color: #173b46; background: #fff; }
 .spatial-bottom > span { border-radius: 8px; padding: 6px 9px; background: #13323ddc; font-size: 10px; }
@@ -34,8 +45,8 @@
 .walkthrough [hidden] { display: none !important; }
 @container tour (max-aspect-ratio: 1 / 1) {
   .spatial-top { flex-wrap: wrap; }
-  .spatial-top p { width: 100%; max-width: none; }
-  .spatial-top > div { margin-left: auto; }
+  .spatial-top p, .spatial-message { width: 100%; max-width: none; }
+  .spatial-top > .spatial-controls { margin-left: auto; }
   .spatial-bottom > div { margin-left: auto; }
 }
 @container tour (min-aspect-ratio: 1 / 1) and (max-height: 550px) {

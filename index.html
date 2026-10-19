@@ -263,7 +263,7 @@
   <link rel="modulepreload" href="case-data.js">
   <link rel="modulepreload" href="touch-gestures.js">
   <link rel="modulepreload" href="orientation.js?v=6">
-  <link rel="modulepreload" href="walkthrough.js?v=10">
+  <link rel="modulepreload" href="walkthrough.js?v=11">
   <link rel="modulepreload" href="camera-fit.js?v=7">
   <link rel="preload" href="vendor/meshopt/meshopt_decoder.js" as="script">
   <link rel="stylesheet" href="ar.css">
@@ -272,9 +272,9 @@
   <link rel="stylesheet" href="ar-entry.css?v=5">
   <script type="module" src="vendor/model-viewer-4.3.1.min.js"></script>
   <link rel="stylesheet" href="orientation-shared.css?v=6">
-  <link rel="stylesheet" href="walkthrough.css?v=10">
+  <link rel="stylesheet" href="walkthrough.css?v=11">
   <link rel="stylesheet" href="responsive-v7.css?v=7">
-  <script type="module" src="ar.js?v=10"></script>
+  <script type="module" src="ar.js?v=11"></script>
 </head>
 <body>
   <main id="stage" class="stage camera-opening orientation-surface" aria-label="产线 AR 数字展台">
@@ -330,8 +330,9 @@
     </model-viewer></div>
     <section id="spatial-session" class="spatial-session" aria-label="地面空间参观" hidden>
       <canvas id="spatial-canvas" aria-label="饮料产线地面 AR 画面"></canvas>
-      <div class="spatial-top"><p id="spatial-status" role="status" aria-live="polite">缓慢移动手机识别地面</p><div><button id="spatial-orientation" type="button" aria-pressed="false">横屏查看</button><button id="spatial-exit" type="button">返回模型预览</button></div></div>
-      <div class="spatial-bottom"><span>产线示意 · 注意周围空间</span><div><button id="spatial-reset" type="button" disabled>重新定位</button><button id="spatial-place" type="button" disabled>放置产线</button></div><a class="spatial-credit" href="vendor/spatial/license.html" target="_blank" rel="noopener">Powered by 8th Wall · © 2026 Niantic Spatial · 许可及免责</a></div>
+      <div class="spatial-top"><div class="spatial-message"><p id="spatial-status" role="status" aria-live="polite">缓慢移动手机识别地面</p><details class="spatial-diagnostics"><summary>定位检查</summary><output id="spatial-diagnostics">定位启动后更新</output></details></div><div class="spatial-controls"><button id="spatial-orientation" type="button" aria-pressed="false">横屏查看</button><button id="spatial-exit" type="button">返回模型预览</button></div></div>
+      <div class="spatial-aim" aria-hidden="true"><span>对准地面</span></div>
+      <div class="spatial-bottom"><span>产线示意 · 注意周围空间</span><div><button id="spatial-reset" type="button" disabled>重新扫描</button><button id="spatial-place" type="button" disabled>放置产线</button></div><a class="spatial-credit" href="vendor/spatial/license.html" target="_blank" rel="noopener">Powered by 8th Wall · © 2026 Niantic Spatial · 许可及免责</a></div>
     </section>
     <footer class="walkthrough-footer"><p id="walkthrough-dimensions" class="walkthrough-dimensions">正在读取等身模型尺寸</p><p class="walkthrough-note">等身比例示意 · 非工程 1:1 · 当前画面为模型预览，进入空间 AR 后可走近参观</p>
       <p id="walkthrough-status" class="walkthrough-status" role="status" aria-live="polite">正在准备等身参观</p><progress id="walkthrough-progress" max="1" value="0" aria-label="等身模型加载进度"></progress>
