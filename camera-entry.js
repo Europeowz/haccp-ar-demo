@@ -24,8 +24,8 @@
     elements.stage?.classList.toggle('camera-active', active);
     elements.stage?.classList.toggle('camera-gated', gated);
     if (elements.gate) { elements.gate.hidden = !gated; elements.gate.setAttribute('aria-busy', String(opening)); }
-    if (elements.title) elements.title.textContent = state.reason === 'insecure' ? '此链接无法进入 AR'
-      : state.phase === 'permission' ? '请允许 AR 权限' : state.reason === 'playback' ? '继续 AR 实景' : 'AR 实景产线';
+    if (elements.title) elements.title.textContent = state.reason === 'insecure' ? '此链接无法进入仿真展示'
+      : state.phase === 'permission' ? '请允许相机权限' : state.reason === 'playback' ? '继续仿真展示' : '产线仿真展示';
     if (elements.message) elements.message.textContent = state.message;
     if (elements.context) {
       elements.context.hidden = state.reason !== 'insecure';
@@ -35,14 +35,14 @@
     if (elements.retry) {
       elements.retry.hidden = opening || ['insecure', 'unsupported', 'policy'].includes(state.reason);
       elements.retry.disabled = false;
-      elements.retry.textContent = inWeChat && state.phase === 'permission' ? '继续 AR 体验' : state.reason === 'playback' ? '继续 AR' : '重试 AR';
+      elements.retry.textContent = inWeChat && state.phase === 'permission' ? '继续仿真展示' : state.reason === 'playback' ? '继续仿真展示' : '重试仿真展示';
     }
     if (elements.button) {
       elements.button.setAttribute('aria-pressed', String(state.mode === '3d'));
-      elements.button.setAttribute('aria-label', state.mode === 'ar' ? '切换 3D 浏览' : '返回 AR 实景');
+      elements.button.setAttribute('aria-label', state.mode === 'ar' ? '切换 3D 浏览' : '返回仿真展示');
     }
-    if (elements.label) elements.label.textContent = state.mode === 'ar' ? '切换 3D' : '返回 AR';
-    if (elements.mode) elements.mode.textContent = state.reason === 'hands' ? '前摄手势模式' : active ? 'AR 实景预览' : opening ? '正在进入 AR' : '3D 展台';
+    if (elements.label) elements.label.textContent = state.mode === 'ar' ? '切换 3D' : '返回仿真展示';
+    if (elements.mode) elements.mode.textContent = state.reason === 'hands' ? '前摄手势模式' : active ? '仿真展示预览' : opening ? '正在进入仿真展示' : '3D 展台';
     if (elements.instruction) elements.instruction.textContent = state.reason === 'hands' ? '后置实景已暂停 · 关闭手势后恢复' : active
       ? '产线已呈现 · 拖动旋转 · 双指缩放' : opening ? '请允许浏览器权限' : '拖动旋转 · 双指缩放';
   }
@@ -66,7 +66,7 @@
     release(previous);
   }
   // Host tools suspend the rear feed without changing the user's AR/3D choice.
-  function stop({reason = 'paused', message = 'AR 实景暂时暂停，可继续查看模型。'} = {}) {
+  function stop({reason = 'paused', message = '仿真展示已暂停，可继续查看模型。'} = {}) {
     suspended = true; resumeOnVisible = false; clearSession();
     publish('off', message, reason);
   }
@@ -84,14 +84,14 @@
     const permission = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
     const message = permission ? (inWeChat
       ? '请允许微信中本页面的相机请求，并确认手机设置已允许微信使用相机。仍无授权提示时，可从微信右上角菜单使用系统浏览器打开此链接。'
-      : 'AR 需要相机权限。请在地址栏的网站权限中允许相机，再重试 AR。')
+      : '仿真展示需要相机权限。请在地址栏的网站权限中允许相机，再重试仿真展示。')
       : error?.name === 'TimeoutError'
-        ? '相机暂未响应。请先处理浏览器的授权提示，再重试 AR；也可以先切换 3D。'
+        ? '相机暂未响应。请先处理浏览器的授权提示，再重试仿真展示；也可以先切换 3D。'
       : error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError'
         ? '未检测到可用相机，暂时无法呈现实景。可以切换 3D 浏览。'
         : error?.name === 'NotReadableError'
-          ? '相机正被其他应用占用。关闭占用后重试 AR，或切换 3D。'
-          : 'AR 实景暂时无法呈现。可以重试 AR，或切换 3D 浏览。';
+          ? '相机正被其他应用占用。关闭占用后重试仿真展示，或切换 3D。'
+          : '仿真展示暂时无法呈现。可以重试仿真展示，或切换 3D 浏览。';
     publish(permission ? 'permission' : 'error', message, permission ? 'permission' : 'device'); return false;
   }
   function waitForCamera(operation, token, milliseconds, onLate) {
@@ -148,7 +148,7 @@
     if (pending) return pending;
     if (!window.isSecureContext) {
       clearSession();
-      publish('error', '此 HTTP 链接被浏览器禁止申请 AR 相机权限。请改用 HTTPS 地址；反复点击无法解除限制。', 'insecure'); return false;
+      publish('error', '此 HTTP 链接无法申请相机权限。请改用 HTTPS 地址；反复点击无法解除限制。', 'insecure'); return false;
     }
     const policy = document.permissionsPolicy || document.featurePolicy;
     if (policy?.allowsFeature && !policy.allowsFeature('camera')) {
@@ -159,14 +159,14 @@
       clearSession();
       publish('error', inWeChat
         ? '当前微信环境未提供网页相机接口。请从微信右上角菜单使用系统浏览器打开此 HTTPS 链接，或切换 3D。'
-        : '当前浏览器未提供 AR 相机接口，请使用支持相机权限的手机浏览器打开 HTTPS 链接。', 'unsupported'); return false;
+        : '当前浏览器未提供网页相机接口，请使用支持相机权限的手机浏览器打开 HTTPS 链接。', 'unsupported'); return false;
     }
     const playbackStream = state.reason === 'playback' ? stream : null;
     wanted = true;
     const token = ++generation;
     const early = earlyRequest; earlyRequest = null; early?.claim();
     state = { ...state, requestedAt: early?.requestedAt ?? performance.now(), startRequestedBeforeModel: !!early || !window.customElements?.get('model-viewer') };
-    publish('opening', playbackStream ? '正在继续 AR 实景…' : '正在申请 AR 展示所需的相机权限，请在浏览器提示中允许。');
+    publish('opening', playbackStream ? '正在继续仿真展示…' : '正在申请仿真展示所需的相机权限，请在浏览器提示中允许。');
     const operation = (async () => {
       let acquired;
       try {
@@ -178,7 +178,7 @@
         catch (error) {
           if (token !== generation) return false;
           if (error?.name === 'NotAllowedError') {
-            publish('playback', '权限已获准。浏览器需要一次触碰来显示实景，请点“继续 AR”。', 'playback'); return false;
+            publish('playback', '权限已获准。浏览器需要一次触碰来显示实景，请点“继续仿真展示”。', 'playback'); return false;
           }
           throw error;
         }
@@ -189,10 +189,10 @@
         for (const track of acquired.getTracks()) {
           track.addEventListener?.('ended', () => {
             if (stream !== acquired || token !== generation) return;
-            clearSession(); publish('error', 'AR 实景已中断，可以重试 AR，或切换 3D。', 'device');
+            clearSession(); publish('error', '仿真展示已中断，可以重试仿真展示，或切换 3D。', 'device');
           });
         }
-        publish('active', '产线模型已进入 AR 实景预览。'); return true;
+        publish('active', '产线模型已进入仿真展示预览。'); return true;
       } catch (error) { if (token !== generation) return false; return failed(error, token); }
       finally { if (token === generation) pending = null; }
     })();
@@ -207,7 +207,7 @@
   }
   function pauseForBackground() {
     if (state.mode === 'ar' && !suspended && ['opening', 'active', 'playback'].includes(state.phase)) {
-      resumeOnVisible = true; clearSession(); publish('off', 'AR 实景已暂停，返回后继续。', 'background');
+      resumeOnVisible = true; clearSession(); publish('off', '仿真展示已暂停，返回后继续。', 'background');
     }
   }
   function restoreForeground() { if (!document.hidden && resumeOnVisible && !suspended && state.mode === 'ar') void start(); }

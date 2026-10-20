@@ -1,4 +1,4 @@
-import {setupHaccpLink} from './haccp-link.js?v=14';
+import {setupHaccpLink} from './haccp-link.js?v=15';
 const mount=document.getElementById('haccp-assurance');
 if(mount){
   const ui=setupHaccpLink({mount,mode:'inline',onProcess:id=>{

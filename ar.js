@@ -2,7 +2,7 @@ import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=13';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
-import { setupHaccpLink } from './haccp-link.js?v=14';
+import { setupHaccpLink } from './haccp-link.js?v=15';
 
 // Switch these paths only after the corresponding local assets exist.
 const ASSETS = {
@@ -549,7 +549,7 @@ async function startHands() {
   if (handWanted) { stopHands(); return; }
   if (!state.loaded || !equipmentCatalog.length) { notify('请等待设备结构加载后再开启手势。'); return; }
   const camera = window.ExhibitCamera, rear = camera?.getState();
-  if (rear?.mode === 'ar' && rear.phase !== 'active') { notify('请先允许 AR 实景权限，再开启前置手势。'); return; }
+  if (rear?.mode === 'ar' && rear.phase !== 'active') { notify('请先允许相机权限，再开启前置手势。'); return; }
   handWanted = true; const token = ++handGeneration;
   const current = () => token === handGeneration && handWanted && !pageLeaving;
   $('hand-control').setAttribute('aria-pressed', 'true'); $('hand-label').textContent = '取消缩放';
@@ -557,7 +557,7 @@ async function startHands() {
   stage.classList.add('hands-active'); requestAnimationFrame(frameModel);
   try {
     const [{ HandGestureController }, { verifyConcurrentCamera, verifyCameraVideo }, { HandCameraSession }] = await Promise.all([
-      import('./hand-gestures.js?v=14'), import('./dual-camera.js?v=14'), import('./hand-camera-session.js?v=14')
+      import('./hand-gestures.js?v=15'), import('./dual-camera.js?v=15'), import('./hand-camera-session.js?v=15')
     ]);
     if (!current()) return;
     let cameraMode = 'starting', rearPaused = false;

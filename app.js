@@ -261,8 +261,8 @@ function startDemo() {
 
   function updateAR() {
     byId('ar').disabled = false;
-    byId('ar').textContent = '返回 AR 展台';
-    byId('ar').title = '返回产线 AR 展台';
+    byId('ar').textContent = '返回仿真展示';
+    byId('ar').title = '返回产线仿真展示';
   }
 
   viewer.addEventListener('progress', (event) => {
@@ -292,7 +292,7 @@ function startDemo() {
     updateAR();
     const selected = processes.find((process) => process.id === selectedId);
     if ((currentGeneration || entryProcess) && selected) selectProcess(selected.id, true);
-    setText('viewer-status', '拖动旋转、双指缩放；点击工序查看分析，或点击等身参观进入地面 AR。');
+    setText('viewer-status', '拖动旋转、双指缩放；点击工序查看对应分析，或返回产线仿真展示。');
   });
 
   viewer.addEventListener('error', () => {
@@ -363,7 +363,7 @@ function startDemo() {
   });
   byId('ar').addEventListener('click', () => {
     stopGuide();
-    location.href = './?case=water&rev=14';
+    location.href = './?case=water&rev=15';
   });
 
   const markdownValue = (value) => text(value).replace(/\r?\n/g, ' ');
