@@ -1,0 +1,57 @@
+.haccp-peek { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; margin: 0 0 7px; border: 1px solid #cddfe5; border-radius: 9px; background: #fffffff2; color: #244d59; }
+.haccp-peek > div { min-width: 0; }
+.haccp-peek strong { display: block; font-size: 11px; line-height: 1.45; }
+.haccp-peek span { display: block; color: #8c681f; font-size: 9px; line-height: 1.5; }
+.haccp-peek button { flex: none; min-height: 38px; padding: 0 10px; border: 1px solid #bcd4de; border-radius: 7px; color: #146d87; background: #f2faff; font-size: 11px; cursor: pointer; }
+.haccp-panel { z-index: 80; color: #20444e; background: #fff; border: 1px solid #bdd3db; border-radius: 13px; text-align: left; font-size: 12px; line-height: 1.65; }
+.haccp-panel[hidden] { display: none !important; }
+.haccp-overlay { position: absolute; inset: 64px 75px 88px 12px; margin: auto; max-width: 760px; overflow: auto; overscroll-behavior: contain; box-shadow: 0 12px 40px #142e3c30; }
+.haccp-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: #f5fafc; border-bottom: 1px solid #d9e7eb; }
+.haccp-heading h2 { margin: 2px 0 0; font-size: 20px; }
+.haccp-heading small, .haccp-simulation > small { color: #547883; font-size: 10px; }
+.haccp-panel button { min-height: 40px; border: 1px solid #c4d9df; border-radius: 7px; padding: 6px 10px; color: #19576a; background: #fff; font: inherit; cursor: pointer; }
+.haccp-body { padding: 14px 16px 18px; }
+.haccp-body p { margin: 5px 0; }
+.haccp-body h3 { font-size: 14px; margin: 14px 0 7px; }
+.haccp-intro, .haccp-context, .haccp-evidence-copy { color: #59757d; font-size: 11px; }
+.haccp-processes { display: flex; gap: 6px; margin: 12px 0; overflow-x: auto; padding-bottom: 4px; }
+.haccp-processes button { flex: none; font-size: 10px; }
+.haccp-processes button[aria-pressed='true'] { color: #fff; background: #146d87; border-color: #146d87; }
+.haccp-pending { display: flex; flex-direction: column; padding: 10px 12px; border: 1px solid #e4d2a7; border-radius: 8px; background: #fff9ed; font-size: 11px; color: #795d20; }
+.haccp-hazards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
+.haccp-hazards > div { border: 1px solid #dce6ea; border-radius: 7px; padding: 9px; font-size: 11px; }
+.haccp-hazards strong { font-size: 11px; }
+.haccp-controls { margin: 10px 0; }
+.haccp-controls dt { font-weight: 600; margin-top: 8px; font-size: 11px; }
+.haccp-controls dd { margin: 2px 0 0; color: #536e78; font-size: 11px; }
+.haccp-principles > details, .haccp-evidence { border-top: 1px solid #dfe9ed; padding: 7px 0; }
+.haccp-panel summary { cursor: pointer; min-height: 32px; padding: 4px 0; font-weight: 600; }
+.haccp-principles p, .haccp-evidence li { font-size: 11px; }
+.haccp-evidence ul { padding-left: 18px; margin: 4px 0; }
+.haccp-simulation { margin-top: 12px; padding: 12px; background: #f2f7fa; border: 1px solid #cfdee5; border-radius: 9px; }
+.haccp-simulation h3 { margin: 3px 0 7px; }
+.haccp-simulation-actions { margin: 9px 0; }
+.haccp-links { margin-top: 15px; border-top: 1px solid #dfe7eb; padding-top: 10px; }
+.haccp-links a { color: #146d87; font-size: 11px; text-underline-offset: 3px; }
+.haccp-links p { font-size: 10px; }
+.haccp-inline { margin: 0 0 20px; }
+#haccp-assurance { margin-bottom: 18px; }
+#spatial-haccp { position: absolute; z-index: 8; left: max(14px,env(safe-area-inset-left)); right: max(14px,env(safe-area-inset-right)); bottom: max(94px,calc(env(safe-area-inset-bottom) + 94px)); }
+#spatial-haccp .haccp-peek { width: min(430px,100%); margin-left: auto; }
+.walkthrough > .haccp-spatial { inset: 64px 14px 85px; max-width: 760px; }
+@container stage (min-aspect-ratio: 1 / 1) {
+  #stage .haccp-peek { padding: 4px 8px; margin-bottom: 4px; }
+  #stage .haccp-peek strong { font-size: 10px; }
+  #stage .haccp-peek span { display: none; }
+  #stage .haccp-peek button { min-height: 32px; font-size: 10px; }
+  #stage .haccp-overlay { inset: 58px 74px 64px 12px; }
+}
+@container stage (max-aspect-ratio: 1 / 1) {
+  #stage .haccp-overlay { inset: 65px 12px 78px; }
+}
+@media (max-width:560px) {
+  .haccp-hazards { grid-template-columns: 1fr; }
+  .haccp-heading { padding: 10px 12px; }
+  .haccp-body { padding: 12px; }
+}
+@media print { .haccp-peek, .haccp-panel, #spatial-haccp { display: none !important; } }

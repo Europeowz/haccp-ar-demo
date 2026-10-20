@@ -18,7 +18,7 @@ const create = (tag, value, className) => {
 
 if (caseId !== demoCase.id || !Array.isArray(demoCase.processes) || !demoCase.processes.length) {
   byId('case-error').hidden = false;
-  document.querySelectorAll('.project-intro, #generation-panel, #workspace, .report-panel, .scope-note').forEach((section) => { section.hidden = true; });
+  document.querySelectorAll('.project-intro, #generation-panel, #haccp-assurance, #workspace, .report-panel, .scope-note').forEach((section) => { section.hidden = true; });
   document.querySelectorAll('button').forEach((button) => { button.disabled = true; });
 } else {
   startDemo();
@@ -70,6 +70,7 @@ function startDemo() {
   processes.forEach((process) => {
     const button = create('button', undefined, 'flow-step');
     button.type = 'button';
+    button.dataset.process = process.id;
     button.setAttribute('aria-pressed', 'false');
     button.append(create('span', String(process.number).padStart(2, '0'), 'flow-number'), create('span', process.name, 'flow-name'));
     button.addEventListener('click', () => chooseProcess(process.id));
@@ -96,6 +97,10 @@ function startDemo() {
     selectProcess(id, true);
   }
 
+  window.addEventListener('haccp-request-process', (event) => {
+    if (processButtons.has(event.detail?.id)) chooseProcess(event.detail.id);
+  });
+
   function selectProcess(id, focus = false) {
     const process = processes.find((item) => item.id === id);
     if (!process) return;
@@ -118,6 +123,7 @@ function startDemo() {
       record: process.record, source: `示例依据：${text(process.sourceRef)}`,
     };
     Object.entries(fields).forEach(([key, value]) => setText(`inspector-${key}`, value));
+    window.dispatchEvent(new CustomEvent('haccp-process-change', { detail: { id: selectedId, source: 'analysis' } }));
     if (focus && modelLoaded) {
       viewer.cameraTarget = text(process.cameraTarget || defaultTarget);
       viewer.cameraOrbit = text(process.cameraOrbit || defaultOrbit);
@@ -357,7 +363,7 @@ function startDemo() {
   });
   byId('ar').addEventListener('click', () => {
     stopGuide();
-    location.href = './?case=water&view=3d&tour=lifesize';
+    location.href = './?case=water&view=3d&tour=lifesize&rev=12';
   });
 
   const markdownValue = (value) => text(value).replace(/\r?\n/g, ' ');

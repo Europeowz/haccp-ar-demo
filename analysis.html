@@ -23,17 +23,19 @@
       document.head.append(decoder);
     })();
   </script>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="orientation-shared.css?v=6">
+  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="orientation-shared.css?v=12">
+  <link rel="stylesheet" href="haccp-link.css?v=12">
   <link rel="stylesheet" href="print.css" media="print">
   <script type="module" src="vendor/model-viewer-4.3.1.min.js"></script>
-  <script type="module" src="app.js?v=9"></script>
-  <script type="module" src="analysis-orientation.js?v=6"></script>
+  <script type="module" src="app.js?v=12"></script>
+  <script type="module" src="analysis-orientation.js?v=12"></script>
+  <script type="module" src="haccp-analysis.js?v=12"></script>
 </head>
 <body>
   <div id="analysis-shell" class="orientation-surface">
   <header class="topbar">
-    <a class="brand" href="./?case=water" aria-label="返回 AR 产线展台">
+    <a class="brand" href="./?case=water&amp;rev=12" aria-label="返回 AR 产线展台">
       <span class="brand-mark" aria-hidden="true">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 21V10l6 3V7l6 3V4h6v17H4Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 17h2m4 0h2m3-3h1m-1 3h1" stroke="currentColor" stroke-width="1.6"/></svg>
       </span>
@@ -46,12 +48,12 @@
     <section id="case-error" hidden role="alert">
       <h1>这个演示案例尚未配置</h1>
       <p>当前提供一条饮料灌装示例产线。</p>
-      <a href="./?case=water">查看饮料灌装示例</a>
+      <a href="./?case=water&amp;rev=12">查看饮料灌装示例</a>
     </section>
 
     <section class="project-intro" aria-labelledby="case-title">
       <div>
-        <a class="return-to-stage" href="./?case=water">← 返回 AR 产线展台</a>
+        <a class="return-to-stage" href="./?case=water&amp;rev=12">← 返回 AR 产线展台</a>
         <p class="eyebrow">工艺方案 / HACCP 分析 / 三维产线</p>
         <h1 id="case-title">饮料灌装线示范方案</h1>
         <p class="intro-copy">从一份工艺方案，看到每道工序的危害、控制要求与设备位置。</p>
@@ -74,6 +76,8 @@
       <ol id="generation-steps" aria-label="分析与展示步骤"></ol>
       <p id="generation-note">过程与结果来自同一套内置饮料案例。</p>
     </section>
+
+    <section id="haccp-assurance" aria-label="模型与HACCP控制链"></section>
 
     <section id="workspace" class="workbench" data-phase="generating" aria-label="三维产线与工位分析">
       <div class="workbench-main">

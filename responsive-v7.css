@@ -1,10 +1,17 @@
 /* The renderer occupies the measured free rectangle, rather than subtracting
    different hard-coded heights in each mode. */
+.gesture-guide { position: relative; margin-top: 2px; font-size: 10px; }
+.gesture-guide summary { display: inline-flex; align-items: center; min-height: 26px; padding: 0 5px; color: #146d87; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.gesture-guide-content { position: absolute; z-index: 25; bottom: calc(100% + 6px); left: 0; width: min(280px, 65vw); max-height: min(260px, 65dvh); padding: 12px; border: 1px solid #bcd7df; border-radius: 10px; color: #204f5b; background: #fff; box-shadow: 0 8px 28px #173b4626; overflow-y: auto; }
+.gesture-guide-content ul { margin: 8px 0 0; padding-left: 17px; font-size: 11px; line-height: 1.7; }
+.gesture-guide-content li + li { margin-top: 5px; }
+#stage.line-structure .part-hotspot { width: 26px; min-height: 26px; font-size: 9px; background: #f4fcfff2; }
 #stage #viewer {
   inset: var(--scene-top, 66px) var(--scene-right, 62px) var(--scene-bottom, 90px) var(--scene-left, 8px) !important;
   width: auto !important; height: auto !important;
 }
 @container stage (min-aspect-ratio: 1 / 1) {
+  #stage .gesture-guide-content { left: calc(100% + 8px); top: 50%; bottom: auto; transform: translateY(-50%); width: min(280px, 45cqw); max-height: min(240px, 65cqh); }
   #stage.detail-open.hands-active #viewer { bottom: 113px; height: calc(100% - 170px); }
   #stage.detail-open.hands-active #gesture-panel {
     position: fixed; z-index: 10; left: max(12px, var(--v4-safe-left)); top: 165px;

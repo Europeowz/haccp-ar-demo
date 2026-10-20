@@ -1,6 +1,6 @@
 # HACCP beverage line AR demonstration
 
-Public static customer demonstration, version 11. Files in this repository are the assets served by the demo.
+Public static customer demonstration, version 12. Files in this repository are the assets served by the demo.
 
 The app displays a preconfigured illustrative beverage line and HACCP example. It does not parse submitted files or generate engineering geometry using AI.
 
@@ -21,3 +21,5 @@ Version 9 shares the compact model between the entry and analysis pages, merges 
 Version 10 starts the entry camera request before model modules, waits for XR core initialization explicitly, bounds and cancels every startup stage, restores previews after failure, and fixes spatial control contrast. Physical phone AR acceptance remains pending.
 
 Version 11 adds tracked metric ground-plane placement, stale/unstable-pose guards, rescan during initial scanning, tracking reason guidance, a local diagnostic disclosure, and checked portrait/landscape controls. Physical Honor phone tracking acceptance is pending.
+
+Version 12 adds front-camera index swipes, fist-to-open-palm line separation into six complete machines, landscape HACCP reading fixes, and a process-linked HACCP control/evidence chain. All data is demonstration-only; there is no real plant monitoring, approval or compliance guarantee. Human gestures and phone tracking acceptance remain pending.

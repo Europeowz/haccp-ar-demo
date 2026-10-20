@@ -3,12 +3,14 @@ import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=6';
 import { setupWalkthrough } from './walkthrough.js?v=11';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
+import { setupHaccpLink } from './haccp-link.js?v=12';
 
 // Switch these paths only after the corresponding local assets exist.
 const ASSETS = {
   line: 'assets/factory-mobile-v9.glb',
   poster: 'assets/factory-premium.webp',
   valveStructure: 'assets/filler-structure.glb',
+  lineStructure: 'assets/line-exploded-v12.json',
   target: '0m 0.18m -0.20m',
   orbit: '28deg 60deg 4.5m',
   ...window.HACCP_AR_ASSETS,
@@ -27,6 +29,7 @@ const partButtons = new Map();
 let partSpec = null;
 const specs = new Map();
 let equipmentCatalog = [];
+let lineSpec = null, lineSpecPromise = null, pendingExplosion = null, requestedSource = null;
 let selectedPart = null;
 let explosionFrame = 0;
 let sourceVersion = 0;
@@ -60,6 +63,15 @@ let toastTimer = null;
 let flowFrame = 0;
 let flowLastDraw = 0;
 let materials = [];
+const haccpUi = caseId === demoCase.id ? setupHaccpLink({mount: $('haccp-model-link'),canSelectProcess: () => state.loaded,onProcess: id => {
+  if (!state.loaded) return;
+  if (isLineStructure()) selectPart(id);
+  else if (isEquipmentView()) setEquipment(id);
+  else selectProcess(id);
+},onScenario: ({processId,step}) => {
+  stage.dataset.haccpProcess=processId;stage.dataset.haccpScenario=String(step);
+}}) : null;
+const spatialHaccpUi = caseId === demoCase.id ? setupHaccpLink({mount: $('spatial-haccp')}) : null;
 
 function notify(message, duration = 6500) {
   clearTimeout(toastTimer);
@@ -69,6 +81,15 @@ function notify(message, duration = 6500) {
 }
 function stopCamera() { window.ExhibitCamera?.stop(); }
 function isEquipmentView() { return state.detail && state.detailScope !== 'picker'; }
+function isLineStructure() { return state.detail && state.detailScope === 'line'; }
+function acceptsModelEvent(event, requireLoaded = false) {
+  if (!requestedSource || (requireLoaded && !viewer.loaded)) return false;
+  const source = event?.detail?.url || event?.detail?.src || event?.detail?.sourceError?.response?.url || event?.detail?.sourceError?.target?.responseURL;
+  try {
+    const expected = new URL(requestedSource, document.baseURI).href;
+    return new URL(viewer.src, document.baseURI).href === expected && (!source || new URL(source, document.baseURI).href === expected);
+  } catch (_) { return false; }
+}
 function isRotatedStage() { return stage.classList.contains('force-landscape') && innerHeight > innerWidth; }
 function stagePoint(x, y) {
   const rect = stage.getBoundingClientRect();
@@ -192,9 +213,11 @@ function updateAnalysisLink() {
   const part = partSpec?.parts.find((item) => item.id === selectedPart);
   const processId = isEquipmentView() ? (state.detailScope === 'valve' ? 'p03' : part?.process || state.equipmentId) : state.selected;
   const process = demoCase.processes.find((item) => item.id === processId) || demoCase.processes[2];
-  const params = new URLSearchParams({ case: caseId, view: 'result', process: process.id });
+  const params = new URLSearchParams({ case: caseId, view: 'result', process: process.id, rev: '12' });
   $('analysis-link').href = `analysis.html?${params}`;
   $('analysis-link').firstElementChild.textContent = state.detail && state.detailScope === 'valve' ? '查看灌装 HACCP' : '查看 HACCP 方案';
+  haccpUi?.setProcess(process.id, {context:isEquipmentView() ? `${partSpec?.name || $('detail-title').textContent}${part?.name ? ` / ${part.name}` : ''}` : process.name});
+  if ($('spatial-session').hidden) spatialHaccpUi?.setProcess(process.id, {context:'空间产线示意'});
 }
 function stopFlowDrawing() { cancelAnimationFrame(flowFrame); flowFrame = 0; }
 function drawFlow(now) {
@@ -255,9 +278,12 @@ function updateParts() {
   $('device-picker').hidden = !state.detail || state.detailScope !== 'picker';
   stage.classList.toggle('detail-open', state.detail);
   stage.classList.toggle('equipment-picker', state.detail && state.detailScope === 'picker');
+  stage.classList.toggle('line-structure', isLineStructure());
   hotspots.forEach((button) => { button.hidden = !(state.flow || (state.detail && state.detailScope === 'picker')); });
   partSpec?.parts.forEach((part) => {
     const position = part.assembled.map((value, index) => value + (part.exploded[index] - value) * state.explosion);
+    // Whole-equipment badges sit above the machines, leaving the small overview unobstructed.
+    if (isLineStructure() && part.bounds?.assembled) position[1] = part.bounds.assembled.max[1] + 0.20 + (part.exploded[1] - part.assembled[1]) * state.explosion;
     const hotspot = partHotspots.get(part.id);
     if (hotspot) {
       hotspot.dataset.position = position.map((value) => `${value}m`).join(' ');
@@ -312,12 +338,31 @@ async function prepareParts() {
     });
     valve.src = ASSETS.valveStructure;
     specs.set('valve', valve);
+    const lineOption = document.createElement('option'); lineOption.value = 'line'; lineOption.textContent = '整线 · 六台设备';
+    $('equipment-select').append(lineOption);
+    const lineButton = document.createElement('button'); lineButton.type = 'button'; lineButton.textContent = '整线 · 六台设备展开';
+    lineButton.dataset.equipment = 'line'; lineButton.addEventListener('click', () => void setLineStructure());
+    $('device-strip').prepend(lineButton);
+    void prepareLineStructure().catch(() => {});
     $('detail').disabled = !state.loaded;
   } catch (error) {
     $('parts-panel').hidden = true;
     $('detail').disabled = true;
     notify('结构资料暂时不可用，可以继续查看产线；刷新后可重试。');
   }
+}
+async function prepareLineStructure() {
+  if (lineSpec) return lineSpec;
+  if (lineSpecPromise) return lineSpecPromise;
+  const operation = (async () => {
+    const response = await fetch(ASSETS.lineStructure);
+    if (!response.ok) throw new Error('Line structure metadata unavailable');
+    const data = await response.json();
+    if (!data.src || !data.animation || !data.bounds || data.parts?.length !== 6 || !Number.isFinite(data.explosionDuration)) throw new Error('Invalid line structure metadata');
+    lineSpec = data; return data;
+  })();
+  lineSpecPromise = operation;
+  try { return await operation; } finally { if (lineSpecPromise === operation) lineSpecPromise = null; }
 }
 function applyZoom(factor) {
   if (!state.loaded || !Number.isFinite(factor) || factor <= 0) return;
@@ -393,6 +438,7 @@ setupOrientation({ stage, button: $('orientation-toggle'), fullscreenTarget: doc
 function switchSource(src) {
   sourceVersion += 1;
   const version = sourceVersion;
+  requestedSource = src;
   const sameSource = viewer.loaded && new URL(viewer.src, document.baseURI).href === new URL(src, document.baseURI).href;
   touchController.disable();
   state.loaded = false;
@@ -414,6 +460,7 @@ function setDetail(value) {
   if (value && !equipmentCatalog.length) { notify('设备结构正在加载，稍后再试。'); return; }
   if (state.xray) setXray(false);
   stopHands();
+  pendingExplosion = null;
   cancelAnimationFrame(explosionFrame);
   setFlow(false);
   setPlaying(false);
@@ -441,6 +488,8 @@ function setEquipment(id, innerValve = false) {
   if (!specs.has(id)) return;
   const scope = innerValve ? 'valve' : id;
   if (isEquipmentView() && scope === state.detailScope) return;
+  pendingExplosion = null;
+  handController?.resetGestures?.(0);
   cancelAnimationFrame(explosionFrame);
   if (state.xray) setXray(false);
   setFlow(false);
@@ -467,6 +516,42 @@ function setEquipment(id, innerValve = false) {
   updateParts();
   switchSource(partSpec.src);
 }
+async function setLineStructure({ expanded = 1, fromGesture = false } = {}) {
+  if (!state.loaded || stage.inert || document.hidden) return false;
+  if (isLineStructure()) {
+    handController?.resetGestures?.(state.explosion);
+    animateExplosion(expanded); return true;
+  }
+  const version = sourceVersion, token = handGeneration;
+  let spec;
+  try { spec = await prepareLineStructure(); }
+  catch (_) { notify('整线结构暂未准备完成，可继续选择单台设备，稍后重试。'); return false; }
+  if (version !== sourceVersion || !state.loaded || stage.inert || document.hidden || (fromGesture && (!handWanted || token !== handGeneration))) return false;
+  cancelAnimationFrame(explosionFrame);
+  handController?.resetGestures?.(0);
+  if (state.xray) setXray(false);
+  setFlow(false); setPlaying(false);
+  state.detail = true; state.detailScope = 'line'; state.equipmentId = null; state.explosion = 0;
+  partSpec = spec; pendingExplosion = Math.max(0, Math.min(1, expanded));
+  buildPartControls();
+  $('detail-panel').hidden = false; $('detail').setAttribute('aria-pressed', 'true');
+  $('equipment-select').value = 'line'; $('scope-line').hidden = false; $('scope-valve').hidden = true;
+  $('detail-level').textContent = '整线 → 六台独立设备'; $('detail-title').textContent = '整线设备拆分';
+  $('detail-copy').textContent = '六台完整设备分开展示。食指左划下一台、右划上一台，继续查看单机内部结构。';
+  viewer.removeAttribute('ios-src'); viewer.removeAttribute('camera-controls');
+  updateParts(); updateAnalysisLink(); switchSource(spec.src);
+  notify('正在展开六台完整设备；可用“复原”按钮或双手合拢收回。', 3500);
+  return true;
+}
+function navigateEquipment(direction) {
+  if (!state.loaded || stage.inert || document.hidden || !equipmentCatalog.length || !['next', 'previous'].includes(direction)) return false;
+  const current = state.equipmentId || (isLineStructure() ? selectedPart : state.selected);
+  const index = Math.max(0, equipmentCatalog.findIndex(item => item.id === current));
+  const next = equipmentCatalog[(index + (direction === 'next' ? 1 : -1) + equipmentCatalog.length) % equipmentCatalog.length];
+  setEquipment(next.id);
+  notify(`${direction === 'next' ? '下一台' : '上一台'}：${next.name}（${equipmentCatalog.indexOf(next) + 1}/6）`, 2400);
+  return true;
+}
 function stopHands(resumeAR = true) {
   const wasActive = handWanted;
   dualAbort?.abort(); dualAbort = null; clearTimeout(dualTimer);
@@ -485,7 +570,6 @@ function stopHands(resumeAR = true) {
 async function startHands() {
   if (handWanted) { stopHands(); return; }
   if (!state.loaded || !equipmentCatalog.length) { notify('请等待设备结构加载后再开启手势。'); return; }
-  if (!isEquipmentView()) { setDetail(true); notify('请先选择一台设备，再开启隔空手势控制它的部件。'); return; }
   const rear = window.ExhibitCamera?.getState();
   if (rear?.mode === 'ar' && rear.phase !== 'active') { notify('请先允许 AR 实景权限，再开启前置手势。'); return; }
   handWanted = true;
@@ -507,17 +591,21 @@ async function startHands() {
   stage.classList.add('hands-active');
   requestAnimationFrame(frameModel);
   try {
-    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=7'), import('./dual-camera.js?v=6')]);
+    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=12'), import('./dual-camera.js?v=6')]);
     if (token !== handGeneration || !handWanted) return;
     let latestMessage = '', frontVideo = null, dualVerified = false;
+    const activeGesture = () => token === handGeneration && handWanted && state.loaded && !stage.inert && !document.hidden && !haccpUi?.isOpen();
     const controller = new HandGestureController({
-      onZoom: (factor) => { if (token === handGeneration && handWanted) applyZoom(factor); },
-      onExplode: (value) => { if (token === handGeneration && handWanted) setExplosion(value, false); },
+      onZoom: (factor) => { if (activeGesture()) applyZoom(factor); },
+      onExplode: (value) => { if (activeGesture()) setExplosion(value, false); },
+      onNavigate: (direction) => { if (activeGesture()) navigateEquipment(direction); },
+      onLineExplode: () => { if (activeGesture()) void setLineStructure({expanded: 1, fromGesture: true}); },
+      getGestureOrientation: () => ({ mirrored: true, rotationQuarterTurns: isRotatedStage() ? 1 : 0 }),
       onStatus: ({ state: status, message, hands }) => {
         if (token !== handGeneration || !handWanted) return;
         latestMessage = message;
         $('hand-state').textContent = message;
-        $('hand-help').textContent = `${dualVerified ? '前摄手势 · 后摄实景 · ' : '前摄手势 · '}${hands === 2 ? '双手拉开拆分 · 合拢复原' : '单手捏合缩放 · 双手拉开拆分'}`;
+        $('hand-help').textContent = `${dualVerified ? '前后双摄 · ' : '前摄手势 · '}食指左划下一台、右划上一台 · 握拳后张掌展开整线`;
         if (status === 'ready' || status === 'tracking' || status === 'searching') $('hand-label').textContent = '关闭手势';
         if (status === 'error' || status === 'stopped') queueMicrotask(() => {
           if (token !== handGeneration || !handWanted) return;
@@ -556,7 +644,7 @@ async function startHands() {
           return;
         }
         dualVerified = true;
-        $('hand-help').textContent = '前摄手势 · 后摄实景 · 单手捏合缩放，双手拉开拆分';
+        $('hand-help').textContent = '前后双摄 · 食指左划下一台、右划上一台 · 握拳后张掌展开整线';
         dualTimer = setTimeout(() => void check(), 1500);
       };
       $('hand-state').textContent = '正在确认前后双摄同时出画';
@@ -578,6 +666,7 @@ async function ensureMainModel() {
   mainPrepared = true;
   await customElements.whenDefined('model-viewer');
   if (ASSETS.poster) viewer.poster = ASSETS.poster;
+  requestedSource = ASSETS.line;
   viewer.src = ASSETS.line;
   if (viewer.loaded) viewer.dispatchEvent(new Event('load'));
 }
@@ -589,6 +678,7 @@ const walkthrough = setupWalkthrough({
   canvas: $('spatial-canvas'), session: $('spatial-session'), placeButton: $('spatial-place'),
   resetButton: $('spatial-reset'), exitButton: $('spatial-exit'), hudStatus: $('spatial-status'), title: $('walkthrough-title'), diagnostics: $('spatial-diagnostics'),
   onOpen: () => {
+    haccpUi?.close(); spatialHaccpUi?.close();
     stopHands(false); stopCamera(); setPlaying(false); touchController.disable(); stopFlowDrawing();
     stage.inert = true; stage.setAttribute('aria-hidden', 'true');
   },
@@ -603,6 +693,7 @@ const walkthrough = setupWalkthrough({
   },
 });
 const tourViewer = $('walkthrough-viewer');
+if (globalThis.MutationObserver) new MutationObserver(() => {if ($('spatial-session').hidden) spatialHaccpUi?.close();}).observe($('spatial-session'), {attributes:true,attributeFilter:['hidden']});
 const tourPanel = $('walkthrough-panel');
 const tourTouch = new TouchStructureController({
   element: tourViewer, getExplode: () => 0, onExplode: () => {},
@@ -673,7 +764,7 @@ $('assembled').addEventListener('click', () => animateExplosion(0));
 $('exploded').addEventListener('click', () => animateExplosion(1));
 $('scope-line').addEventListener('click', () => setDetail(true));
 $('scope-valve').addEventListener('click', () => setEquipment('p03', state.detailScope !== 'valve'));
-$('equipment-select').addEventListener('change', (event) => { if (event.target.value) setEquipment(event.target.value); else setDetail(true); });
+$('equipment-select').addEventListener('change', (event) => { if (event.target.value === 'line') void setLineStructure(); else if (event.target.value) setEquipment(event.target.value); else setDetail(true); });
 $('explode-range').addEventListener('input', (event) => setExplosion(Number(event.target.value) / 100));
 $('zoom-in').addEventListener('click', () => applyZoom(1.18));
 $('zoom-out').addEventListener('click', () => applyZoom(1 / 1.18));
@@ -683,8 +774,13 @@ $('retry-model').addEventListener('click', () => {
   switchSource(`${src}${src.includes('?') ? '&' : '?'}retry=${Date.now()}`);
 });
 viewer.addEventListener('progress', (event) => { $('load-progress').value = event.detail?.totalProgress || 0; });
-viewer.addEventListener('load', async () => {
+viewer.addEventListener('load', async (event) => {
+  if (!acceptsModelEvent(event, true)) return;
   const version = sourceVersion;
+  const clips = viewer.availableAnimations || [];
+  if (clips.length) viewer.animationName = isEquipmentView() ? (partSpec?.animation || clips[0]) : (clips.includes('LineCycle') ? 'LineCycle' : clips[0]);
+  await viewer.updateComplete;
+  if (version !== sourceVersion || !acceptsModelEvent(event, true)) return;
   state.loaded = true;
   stage.classList.add('loaded');
   $('model-error').hidden = true;
@@ -693,20 +789,22 @@ viewer.addEventListener('load', async () => {
   $('flow').disabled = state.detail;
   $('detail').disabled = !equipmentCatalog.length;
   ['assembled', 'exploded', 'explode-range', 'zoom-in', 'zoom-out'].forEach((id) => { $(id).disabled = false; });
-  const clips = viewer.availableAnimations || [];
-  if (clips.length) viewer.animationName = isEquipmentView() ? (partSpec?.animation || clips[0]) : (clips.includes('LineCycle') ? 'LineCycle' : clips[0]);
-  await viewer.updateComplete;
-  if (version !== sourceVersion) return;
   frameModel();
   inspectMaterials();
   updateParts();
   refreshAR();
   setPlaying(!reducedMotion.matches && !document.hidden && !state.detail);
   if (isEquipmentView()) applyExplosion(state.explosion);
+  if (pendingExplosion !== null) {
+    const target = pendingExplosion; pendingExplosion = null;
+    animateExplosion(target);
+  }
   updateViewControls();
   if (state.flow) { stopFlowDrawing(); flowFrame = requestAnimationFrame(drawFlow); }
 });
-viewer.addEventListener('error', () => {
+viewer.addEventListener('error', (event) => {
+  if (!acceptsModelEvent(event)) return;
+  pendingExplosion = null;
   state.loaded = false;
   state.playing = false;
   stopHands();
