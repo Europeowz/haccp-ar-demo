@@ -23,37 +23,37 @@
       document.head.append(decoder);
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=12">
-  <link rel="stylesheet" href="orientation-shared.css?v=12">
-  <link rel="stylesheet" href="haccp-link.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="orientation-shared.css?v=13">
+  <link rel="stylesheet" href="haccp-link.css?v=13">
   <link rel="stylesheet" href="print.css" media="print">
   <script type="module" src="vendor/model-viewer-4.3.1.min.js"></script>
-  <script type="module" src="app.js?v=12"></script>
-  <script type="module" src="analysis-orientation.js?v=12"></script>
-  <script type="module" src="haccp-analysis.js?v=12"></script>
+  <script type="module" src="app.js?v=13"></script>
+  <script type="module" src="analysis-orientation.js?v=13"></script>
+  <script type="module" src="haccp-analysis.js?v=13"></script>
 </head>
 <body>
   <div id="analysis-shell" class="orientation-surface">
   <header class="topbar">
-    <a class="brand" href="./?case=water&amp;rev=12" aria-label="返回 AR 产线展台">
+    <a class="brand" href="./?case=water&amp;rev=13" aria-label="返回 AR 产线展台">
       <span class="brand-mark" aria-hidden="true">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M4 21V10l6 3V7l6 3V4h6v17H4Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 17h2m4 0h2m3-3h1m-1 3h1" stroke="currentColor" stroke-width="1.6"/></svg>
       </span>
       <span><span class="brand-name">工业 HACCP 可视化</span><span class="brand-en">PROCESS TO PLAN</span></span>
     </a>
-    <div class="analysis-header-actions"><div class="header-meta"><span id="case-version">DEMO 04</span><span class="demo-badge">演示模式 · 预置饮料案例</span></div><button id="analysis-orientation" type="button" aria-pressed="false">横屏查看</button></div>
+    <div class="analysis-header-actions"><div class="header-meta"><span id="case-version">DEMO 04</span><span class="demo-badge">演示模式 · 预置饮料案例</span></div><button id="analysis-orientation" type="button" aria-pressed="false">全屏查看</button></div>
   </header>
 
   <main class="shell">
     <section id="case-error" hidden role="alert">
       <h1>这个演示案例尚未配置</h1>
       <p>当前提供一条饮料灌装示例产线。</p>
-      <a href="./?case=water&amp;rev=12">查看饮料灌装示例</a>
+      <a href="./?case=water&amp;rev=13">查看饮料灌装示例</a>
     </section>
 
     <section class="project-intro" aria-labelledby="case-title">
       <div>
-        <a class="return-to-stage" href="./?case=water&amp;rev=12">← 返回 AR 产线展台</a>
+        <a class="return-to-stage" href="./?case=water&amp;rev=13">← 返回 AR 产线展台</a>
         <p class="eyebrow">工艺方案 / HACCP 分析 / 三维产线</p>
         <h1 id="case-title">饮料灌装线示范方案</h1>
         <p class="intro-copy">从一份工艺方案，看到每道工序的危害、控制要求与设备位置。</p>
@@ -111,7 +111,7 @@
           <button id="rotate" type="button" aria-pressed="false" disabled>自动旋转</button>
           <button id="guide" type="button" aria-pressed="false" disabled>工序导览</button>
           <button id="annotations" type="button" aria-pressed="true">隐藏标注</button>
-          <button id="ar" type="button" disabled>等身参观</button>
+          <button id="ar" type="button">返回 AR 展台</button>
         </div>
         <p id="viewer-status" role="status" aria-live="polite">模型加载后即可旋转与缩放；选择工序查看对应分析。</p>
       </div>
@@ -141,7 +141,7 @@
     </section>
 
     <section class="scope-note">
-      <details><summary>案例来源与演示说明</summary><p>本页使用内置饮料案例展示工艺分析、HACCP 计划草案与三维模型的对应关系。分析步骤为预置案例演示，尚未接入另一台电脑的文件解析结果。实际项目需要根据企业资料复核危害、CCP、关键限值与控制措施。</p><p>三维场景为产线示意，非工程 1:1。“等身参观”进入本站地面定位页面，不跳转到外部 AR 应用。网页分析表仍可下载和打印。</p></details>
+      <details><summary>案例来源与演示说明</summary><p>本页使用内置饮料案例展示工艺分析、HACCP 计划草案与三维模型的对应关系。分析步骤为预置案例演示，尚未接入另一台电脑的文件解析结果。实际项目需要根据企业资料复核危害、CCP、关键限值与控制措施。</p><p>三维场景为产线示意，非工程尺寸。网页分析表可下载和打印。</p></details>
     </section>
     <noscript><p role="alert">请启用 JavaScript，以查看工艺分析与模型联动。</p></noscript>
   </main>

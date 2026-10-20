@@ -170,7 +170,7 @@ td strong { color: #4e657e; font-weight: 650; }
 #case-error p { margin: 12px 0; color: var(--muted); }
 noscript p { margin-top: 20px; padding: 15px; background: #fff5e7; color: #8b6838; border-radius: 7px; }
 
-/* Use the surface width: CSS landscape swaps it without changing viewport media queries. */
+/* Respond to the report width as the browser viewport changes direction. */
 @container analysis-page (min-width: 1600px) {
   .viewer-shell { height: 505px; }
 }

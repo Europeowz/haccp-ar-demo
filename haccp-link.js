@@ -1,4 +1,4 @@
-import {HACCP_PRINCIPLES, getHaccpProcess, getReleaseGate, getDeviationScenario} from './haccp-data.js?v=12';
+import {HACCP_PRINCIPLES, getHaccpProcess, getReleaseGate, getDeviationScenario} from './haccp-data.js?v=13';
 
 const element = (tag, text, className) => {
   const node = document.createElement(tag);
@@ -28,7 +28,6 @@ export function setupHaccpLink({mount, mode = 'overlay', canSelectProcess = () =
   mount.append(peek);
   if (mode === 'overlay') (mount.closest('.orientation-surface') || mount).append(panel);
   else mount.append(panel);
-  if (mount.id === 'spatial-haccp') panel.classList.add('haccp-spatial');
 
   function render() {
     const process = getHaccpProcess(currentId), gate = getReleaseGate(currentId);
@@ -106,7 +105,7 @@ export function setupHaccpLink({mount, mode = 'overlay', canSelectProcess = () =
     simulation.append(element('p', '演示推进不会改变真实放行状态；任何缺项仍须企业确认。', 'haccp-evidence-copy'));
     body.append(simulation);
     const links=element('footer',undefined,'haccp-links');
-    const analysis=element('a','查看本工序 HACCP 分析表'); analysis.href=`analysis.html?case=water&view=result&process=${encodeURIComponent(currentId)}&rev=12`; links.append(analysis);
+    const analysis=element('a','查看本工序 HACCP 分析表'); analysis.href=`analysis.html?case=water&view=result&process=${encodeURIComponent(currentId)}&rev=13`; links.append(analysis);
     const basis=element('p','方法依据：');
     for(const [label,url] of [['GB/T 27341-2009','https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=FAC276BE3CC48070156D8BA81E554D5D'],['Codex / FAO HACCP','https://www.fao.org/good-hygiene-practices-haccp-toolbox/haccp/step-11-validation-and-verification/']]) {
       const link=element('a',label);link.href=url;link.target='_blank';link.rel='noopener';basis.append(link,document.createTextNode(' '));

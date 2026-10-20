@@ -8,7 +8,7 @@
   <title>饮料灌装线 · AR 数字展台</title>
   <link rel="icon" href="data:,">
   <script id="camera-entry-bootstrap">
-// Generated from camera-entry.js by work/haccp-v10/embed-entry.py.
+// Generated from camera-entry.js by work/haccp-v13/remove-retired-features.py.
 /* AR entry requests permission before the renderer; 3D is an explicit alternative. */
 (() => {
   'use strict';
@@ -124,7 +124,7 @@
     });
   }
   function primeCameraPermission() {
-    if (document.hidden || document.getElementById('camera-feed') || !validCase || state.mode !== 'ar' || parameters.get('tour') === 'lifesize' || !window.isSecureContext
+    if (document.hidden || document.getElementById('camera-feed') || !validCase || state.mode !== 'ar' || !window.isSecureContext
       || !navigator.mediaDevices?.getUserMedia) return;
     const policy = document.permissionsPolicy || document.featurePolicy;
     if (policy?.allowsFeature && !policy.allowsFeature('camera')) return;
@@ -237,7 +237,7 @@
     elements.fallback?.addEventListener('click', continue3D);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pauseForBackground(); else restoreForeground(); });
     window.addEventListener('pagehide', pauseForBackground); window.addEventListener('pageshow', restoreForeground);
-    resolveReady(); render(); if (validCase && state.mode === 'ar' && !suspended && parameters.get('tour') !== 'lifesize') void start();
+    resolveReady(); render(); if (validCase && state.mode === 'ar' && !suspended) void start();
   }
   primeCameraPermission();
   if (document.readyState === 'loading' && !document.getElementById('camera-feed')) {
@@ -254,7 +254,7 @@
       if ((query.get('case') || 'water') !== 'water') return;
       const preload = document.createElement('link');
       preload.rel = 'preload'; preload.as = 'fetch'; preload.crossOrigin = 'anonymous';
-      preload.href = query.get('tour') === 'lifesize' ? 'assets/line-lifesize-v9.glb' : 'assets/factory-mobile-v9.glb';
+      preload.href = 'assets/factory-mobile-v9.glb';
       preload.fetchPriority = 'high'; document.head.append(preload);
       window.ModelViewerElement = { ...(window.ModelViewerElement || {}),
         meshoptDecoderLocation: new URL('vendor/meshopt/meshopt_decoder.js', location.href).href };
@@ -262,20 +262,18 @@
   </script>
   <link rel="modulepreload" href="case-data.js">
   <link rel="modulepreload" href="touch-gestures.js">
-  <link rel="modulepreload" href="orientation.js?v=6">
-  <link rel="modulepreload" href="walkthrough.js?v=11">
+  <link rel="modulepreload" href="orientation.js?v=13">
   <link rel="modulepreload" href="camera-fit.js?v=7">
   <link rel="preload" href="vendor/meshopt/meshopt_decoder.js" as="script">
   <link rel="stylesheet" href="ar.css">
   <link rel="stylesheet" href="structure.css">
-  <link rel="stylesheet" href="responsive-v4.css">
+  <link rel="stylesheet" href="responsive-v4.css?v=13">
   <link rel="stylesheet" href="ar-entry.css?v=5">
   <script type="module" src="vendor/model-viewer-4.3.1.min.js"></script>
-  <link rel="stylesheet" href="orientation-shared.css?v=6">
-  <link rel="stylesheet" href="walkthrough.css?v=11">
+  <link rel="stylesheet" href="orientation-shared.css?v=13">
   <link rel="stylesheet" href="responsive-v7.css?v=12">
-  <link rel="stylesheet" href="haccp-link.css?v=12">
-  <script type="module" src="ar.js?v=12"></script>
+  <link rel="stylesheet" href="haccp-link.css?v=13">
+  <script type="module" src="ar.js?v=13"></script>
 </head>
 <body>
   <main id="stage" class="stage camera-opening orientation-surface" aria-label="产线 AR 数字展台">
@@ -294,15 +292,14 @@
     </model-viewer>
     <svg id="flow-overlay" class="flow-overlay" hidden aria-hidden="true"><path id="flow-track"/><circle id="flow-dot" r="4"/></svg>
     <header class="topbar">
-      <a class="brand" href="?case=water" aria-label="饮料灌装线展台首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none"><path d="M4 23V12l6 3V9l6 3V5h8v18H4Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 19h2m4 0h2m3-3h2m-2 3h2" stroke="currentColor" stroke-width="1.5"/></svg></span><span><strong>饮料灌装线</strong><small>AR 数字展台</small></span></a>
-      <div class="topbar-actions"><button id="orientation-toggle" type="button" aria-pressed="false">横屏查看</button><button id="about-toggle" class="case-badge" type="button" aria-expanded="false" aria-controls="about-panel"><span class="status-dot"></span>方案演示 <span aria-hidden="true">ⓘ</span></button></div>
+      <a class="brand" href="?case=water&amp;rev=13" aria-label="饮料灌装线展台首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none"><path d="M4 23V12l6 3V9l6 3V5h8v18H4Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 19h2m4 0h2m3-3h2m-2 3h2" stroke="currentColor" stroke-width="1.5"/></svg></span><span><strong>饮料灌装线</strong><small>AR 数字展台</small></span></a>
+      <div class="topbar-actions"><button id="orientation-toggle" type="button" aria-pressed="false">全屏查看</button><button id="about-toggle" class="case-badge" type="button" aria-expanded="false" aria-controls="about-panel"><span class="status-dot"></span>方案演示 <span aria-hidden="true">ⓘ</span></button></div>
     </header>
-    <aside id="about-panel" class="about-panel" hidden><strong>从工艺方案到可视化产线</strong><p>当前为预置饮料案例，未解析提交文件。模型为产线示意，不代表工程尺寸或已审核的 HACCP 计划。</p><p>入口为实景叠加展示；点击“等身参观”或“桌面 AR”，进入本站空间定位，识别普通地面后放置模型。无需定位图或 Google 服务。等身模型采用接近人体尺度的示意比例；地面识别与双摄能否同时工作取决于手机和浏览器。</p><button id="about-close" type="button">知道了</button></aside>
+    <aside id="about-panel" class="about-panel" hidden><strong>从工艺方案到可视化产线</strong><p>当前为预置饮料案例，未解析提交文件。模型为产线示意，不代表工程尺寸或已审核的 HACCP 计划。</p><p>入口为摄像头实景叠加展示，可旋转缩放并按设备查看结构与 HACCP 控制要求。模型位置由屏幕操作调整，不进行地面识别或空间定位。</p><button id="about-close" type="button">知道了</button></aside>
     <nav class="toolrail" aria-label="模型探索工具">
-      <button id="walkthrough-open" type="button" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="14" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><path d="m9 10 4-3 3 4 4 1M13 7l-2 7-4 6m4-6 5 2 2 5M4 4v5m0-5h5M4 4l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>等身参观</span></button>
       <button id="xray" type="button" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 5-8 5-8-5 8-5Zm-8 9 8 5 8-5M4 16l8 5 8-5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>结构透视</span></button>
       <button id="detail" type="button" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 8h8v8H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>部件拆分</span></button>
-      <button id="hand-control" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 12V5a1.5 1.5 0 0 1 3 0v5-7a1.5 1.5 0 0 1 3 0v7-5a1.5 1.5 0 0 1 3 0v7-3a1.5 1.5 0 0 1 3 0v6c0 5-3 7-7 7-2 0-4-1-5-3l-4-6a1.5 1.5 0 0 1 2-2l2 2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span id="hand-label">隔空手势</span></button>
+      <button id="hand-control" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 12V5a1.5 1.5 0 0 1 3 0v5-7a1.5 1.5 0 0 1 3 0v7-5a1.5 1.5 0 0 1 3 0v7-3a1.5 1.5 0 0 1 3 0v6c0 5-3 7-7 7-2 0-4-1-5-3l-4-6a1.5 1.5 0 0 1 2-2l2 2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span id="hand-label">隔空缩放</span></button>
       <button id="flow" type="button" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 6h12l-3-3m3 3-3 3M21 18H9l3 3m-3-3 3-3M4 11v3h16v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>工艺流向</span></button>
       <button id="reset" type="button" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9V4m0 0h5M4 4l4 4a7 7 0 1 1-2 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>整体视角</span></button>
       <button id="play" type="button" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path id="play-symbol" d="m9 5 10 7-10 7V5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="play-label">播放动作</span></button>
@@ -310,40 +307,20 @@
     <section id="detail-panel" class="detail-panel" hidden aria-labelledby="detail-title"><div class="structure-heading"><div><small id="detail-level">产线 → 选择设备</small><h2 id="detail-title">选择一台设备</h2></div><button id="detail-exit" class="text-button" type="button" aria-label="返回产线展台">展台 ↗</button></div><label class="equipment-select-label" for="equipment-select">设备<select id="equipment-select"><option value="">请选择设备</option></select></label><div class="segment scope-segment" aria-label="结构展示范围"><button id="scope-line" type="button">← 选其他设备</button><button id="scope-valve" type="button" hidden>灌装阀内件</button></div><p id="detail-copy">点击模型中的设备编号，查看这台设备的部件拆分。</p></section>
     <div class="stage-caption"><span id="stage-mode">AR 实景预览</span><span id="stage-instruction">正在申请权限</span></div>
     <p id="status" class="toast" role="status" aria-live="polite" hidden></p>
-    <section id="case-error" class="error-panel" hidden role="alert"><h1>这个演示案例尚未配置</h1><p>当前仅提供饮料灌装示例，不会自动替换你指定的案例。</p><a href="?case=water">查看饮料灌装示例</a></section>
+    <section id="case-error" class="error-panel" hidden role="alert"><h1>这个演示案例尚未配置</h1><p>当前仅提供饮料灌装示例，不会自动替换你指定的案例。</p><a href="?case=water&amp;rev=13">查看饮料灌装示例</a></section>
     <section id="model-error" class="error-panel" hidden role="alert"><h2>模型暂时无法加载</h2><p>可以重试，或先查看 HACCP 示例方案。</p><button id="retry-model" type="button">重新加载</button></section>
     <footer class="bottom-dock">
       <section id="device-picker" class="device-picker" hidden aria-label="选择要拆分的设备"><p>先选设备，再展开它的内部部件</p><nav id="device-strip" aria-label="产线设备列表"></nav></section>
-      <section id="gesture-panel" class="gesture-panel" hidden aria-label="隔空手势状态"><div id="hand-preview" class="hand-preview"></div><div><strong id="hand-state">正在准备手势识别</strong><p id="hand-help">食指左右划切设备 · 握拳后张掌展开整线</p><details class="gesture-guide"><summary>手势说明</summary><div class="gesture-guide-content"><strong>前置相机隔空控制</strong><ul><li>食指伸出、拇指收回，停留片刻，再左划下一台、右划上一台。</li><li>先握拳停留片刻，再张开手掌，展开整线六台设备。</li><li>拇指与食指开合：缩放。</li><li>结构视图中双手拉开：拆分；合拢：复原。也可点“复原”。</li></ul></div></details></div><button id="hand-stop" type="button" aria-label="关闭隔空手势">关闭</button></section>
-      <section id="structure-controls" class="structure-controls" hidden aria-label="连续拆分控制"><div class="explode-row"><button id="assembled" type="button">复原</button><label class="explode-slider" for="explode-range"><span>拆分程度 <output id="explode-value" for="explode-range">0%</output></span><input id="explode-range" type="range" min="0" max="100" value="0" step="1" aria-label="设备拆分程度"></label><button id="exploded" type="button">全展开</button><div class="zoom-buttons"><button id="zoom-out" type="button" aria-label="缩小模型">−</button><button id="zoom-in" type="button" aria-label="放大模型">＋</button></div></div><p>单指旋转 · 双指捏合缩放 · 双指上移拆分／下移复原</p></section>
+      <section id="gesture-panel" class="gesture-panel" hidden aria-label="隔空缩放状态"><div id="hand-preview" class="hand-preview"></div><div><strong id="hand-state">正在准备手势识别</strong><p id="hand-help">单手捏合缩放 · 拆分请使用滑杆或按钮</p><details class="gesture-guide"><summary>手势说明</summary><div class="gesture-guide-content"><strong>前置相机隔空控制</strong><ul><li>先捏合拇指与食指，再开合缩放。</li><li>设备切换、拆分和复原使用页面按钮或滑杆。</li></ul></div></details></div><button id="hand-stop" type="button" aria-label="关闭隔空缩放">关闭</button></section>
+      <section id="structure-controls" class="structure-controls" hidden aria-label="连续拆分控制"><div class="explode-row"><button id="assembled" type="button">复原</button><label class="explode-slider" for="explode-range"><span>拆分程度 <output id="explode-value" for="explode-range">0%</output></span><input id="explode-range" type="range" min="0" max="100" value="0" step="1" aria-label="设备拆分程度"></label><button id="exploded" type="button">全展开</button><div class="zoom-buttons"><button id="zoom-out" type="button" aria-label="缩小模型">−</button><button id="zoom-in" type="button" aria-label="放大模型">＋</button></div></div><p>单指旋转 · 双指捏合缩放 · 使用滑杆或按钮拆分／复原</p></section>
       <section id="parts-panel" class="parts-panel" hidden aria-label="设备部件说明"><nav id="parts-strip" aria-label="选择部件"></nav><div class="part-summary"><strong id="part-name">整线设备结构</strong><p id="part-copy"></p></div></section>
       <section id="process-panel" class="process-panel" hidden aria-label="工艺流向示意"><nav id="process-strip" aria-label="选择工序"></nav><div class="process-summary"><span id="process-number">01</span><div><strong id="process-name">空瓶上料</strong><p id="process-copy"></p></div></div></section>
       <div id="haccp-model-link" aria-label="当前模型的食品安全控制"></div>
-      <div class="primary-actions"><button id="view-mode-toggle" aria-label="切换 3D 浏览" aria-pressed="false" class="secondary-action" type="button"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 4h18v13H3V4Zm5 17h8m-4-4v4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="view-mode-label">切换 3D</span></button><button id="native-ar" class="secondary-action" type="button" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 5v8l-8 5-8-5V8l8-5Zm0 10 8-5M12 13 4 8m8 5v8" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span>桌面 AR</span></button><a id="analysis-link" class="primary-action" href="analysis.html?case=water&amp;view=result"><span>查看 HACCP 方案</span><span aria-hidden="true">↗</span></a></div>
+      <div class="primary-actions"><button id="view-mode-toggle" aria-label="切换 3D 浏览" aria-pressed="false" class="secondary-action" type="button"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 4h18v13H3V4Zm5 17h8m-4-4v4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="view-mode-label">切换 3D</span></button><a id="analysis-link" class="primary-action" href="analysis.html?case=water&amp;view=result&amp;rev=13"><span>查看 HACCP 方案</span><span aria-hidden="true">↗</span></a></div>
       <p class="scope-line">产线示意模型 · 预置方案演示</p>
     </footer>
   </main>
 
-  <section id="walkthrough-panel" class="walkthrough orientation-surface" hidden role="dialog" aria-modal="true" aria-labelledby="walkthrough-title"><div class="walkthrough-layout">
-    <header class="walkthrough-header"><div><small>SPATIAL LINE TOUR</small><h1 id="walkthrough-title">走进饮料产线</h1><p>把设备放在地面上，走近阀组、绕到设备背面，随手机移动观察细节。</p></div><button id="walkthrough-close" type="button">返回桌面展台</button></header>
-    <div class="walkthrough-model"><model-viewer id="walkthrough-viewer" poster="assets/line-lifesize.webp" alt="接近人体尺度的饮料产线，包含六台设备；空间 AR 放置后可走近参观"
-      camera-controls interaction-prompt="none" touch-action="none" shadow-intensity="0.7" exposure="1.05" loading="eager">
-      <div slot="progress-bar" hidden></div>
-    </model-viewer></div>
-    <section id="spatial-session" class="spatial-session" aria-label="地面空间参观" hidden>
-      <canvas id="spatial-canvas" aria-label="饮料产线地面 AR 画面"></canvas>
-      <div id="spatial-haccp" aria-label="空间产线的食品安全控制"></div>
-      <div class="spatial-top"><div class="spatial-message"><p id="spatial-status" role="status" aria-live="polite">缓慢移动手机识别地面</p><details class="spatial-diagnostics"><summary>定位检查</summary><output id="spatial-diagnostics">定位启动后更新</output></details></div><div class="spatial-controls"><button id="spatial-orientation" type="button" aria-pressed="false">横屏查看</button><button id="spatial-exit" type="button">返回模型预览</button></div></div>
-      <div class="spatial-aim" aria-hidden="true"><span>对准地面</span></div>
-      <div class="spatial-bottom"><span>产线示意 · 注意周围空间</span><div><button id="spatial-reset" type="button" disabled>重新扫描</button><button id="spatial-place" type="button" disabled>放置产线</button></div><a class="spatial-credit" href="vendor/spatial/license.html" target="_blank" rel="noopener">Powered by 8th Wall · © 2026 Niantic Spatial · 许可及免责</a></div>
-    </section>
-    <footer class="walkthrough-footer"><p id="walkthrough-dimensions" class="walkthrough-dimensions">正在读取等身模型尺寸</p><p class="walkthrough-note">等身比例示意 · 非工程 1:1 · 当前画面为模型预览，进入空间 AR 后可走近参观</p>
-      <p id="walkthrough-status" class="walkthrough-status" role="status" aria-live="polite">正在准备等身参观</p><progress id="walkthrough-progress" max="1" value="0" aria-label="等身模型加载进度"></progress>
-      <div class="walkthrough-actions"><button id="walkthrough-retry" type="button" hidden>重载模型</button><button id="tour-orientation" type="button" aria-pressed="false">横屏查看</button><button id="walkthrough-start" type="button" disabled>开始等身参观</button></div><a class="spatial-credit preview-credit" href="vendor/spatial/license.html" target="_blank" rel="noopener">Powered by 8th Wall · © 2026 Niantic Spatial · 许可及免责</a>
-      <ol class="walkthrough-steps"><li>01 识别地面</li><li>02 放置产线</li><li>03 走近与绕行</li></ol>
-    </footer>
-    </div>
-  </section>
   <noscript>请启用 JavaScript 查看 AR 数字展台。</noscript>
 </body>
 </html>

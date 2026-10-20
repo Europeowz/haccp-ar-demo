@@ -260,9 +260,9 @@ function startDemo() {
   }
 
   function updateAR() {
-    byId('ar').disabled = !modelLoaded;
-    byId('ar').textContent = '等身参观';
-    byId('ar').title = '进入本站地面空间参观';
+    byId('ar').disabled = false;
+    byId('ar').textContent = '返回 AR 展台';
+    byId('ar').title = '返回产线 AR 展台';
   }
 
   viewer.addEventListener('progress', (event) => {
@@ -300,7 +300,7 @@ function startDemo() {
     document.querySelector('.loading-wrap').hidden = true;
     animationPlaying = false;
     stopGuide();
-    ['play', 'reset', 'rotate', 'guide', 'ar'].forEach((id) => { byId(id).disabled = true; });
+    ['play', 'reset', 'rotate', 'guide'].forEach((id) => { byId(id).disabled = true; });
     byId('model-error').hidden = false;
     updatePlayback();
     setText('load-label', '模型加载失败');
@@ -363,7 +363,7 @@ function startDemo() {
   });
   byId('ar').addEventListener('click', () => {
     stopGuide();
-    location.href = './?case=water&view=3d&tour=lifesize&rev=12';
+    location.href = './?case=water&rev=13';
   });
 
   const markdownValue = (value) => text(value).replace(/\r?\n/g, ' ');

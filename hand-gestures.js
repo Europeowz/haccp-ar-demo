@@ -23,186 +23,64 @@ export function measureHand(landmarks, aspect = 1) {
 }
 
 export function createGestureState(explode = 0) {
-  return { mode: 'none', samples: 0, smooth: null, applied: null, anchor: null, anchorExplode: clamp(Number(explode) || 0, 0, 1), explode: clamp(Number(explode) || 0, 0, 1), center: null, intent: createIntent() };
+  // explode is retained only for callers that sync the touch/slider model state.
+  return { mode: 'none', samples: 0, smooth: null, applied: null, center: null,
+    explode: clamp(Number(explode) || 0, 0, 1), lastAt: null, orientation: null };
 }
 
-function createIntent(cooldownUntil = 0) {
-  return { pose: 'none', poseSamples: 0, poseSince: null, poseCenter: null, center: null,
-    lastAt: null, orientation: null, swipe: null, swipeLocked: false,
-    fistArmedAt: null, openFired: false, pinchActive: false, cooldownUntil };
-}
-
-function handPose(landmarks, aspect, width) {
-  const p = landmarks.map(point => ({x: Number(point.x) * aspect, y: Number(point.y)}));
-  const fingers = [5, 9, 13, 17].map(index => {
-    const proximal = distance(p[index], p[index + 1]);
-    if (proximal < width * .18) return 'unknown';
-    if (distance(p[index], p[index + 3]) > proximal * 1.7
-      && distance(p[0], p[index + 3]) > distance(p[0], p[index + 1]) * 1.12) return 'extended';
-    if (distance(p[index], p[index + 3]) < proximal * 1.25
-      && distance(p[0], p[index + 3]) < distance(p[0], p[index + 1]) * 1.15) return 'folded';
-    return 'unknown';
-  });
-  const thumbProximal = distance(p[2], p[3]);
-  const palmCenter = [0, 5, 9, 13, 17].reduce((sum, index) => ({x: sum.x + p[index].x / 5, y: sum.y + p[index].y / 5}), {x: 0, y: 0});
-  const pinchDistance = distance(p[4], p[8]) / width;
-  // A straight index also occurs during pinch zoom. Navigation additionally
-  // requires a folded thumb near the palm and clear thumb/index separation.
-  const thumbFolded = thumbProximal > width * .18 && distance(p[2], p[4]) <= thumbProximal * 1.5
-    && distance(p[4], palmCenter) <= width * .75;
-  if (fingers[0] === 'extended' && pinchDistance <= .45) return 'pinch';
-  if (fingers[0] === 'extended' && fingers.slice(1).every(value => value === 'folded') && thumbFolded && pinchDistance >= 1.1) return 'point';
-  if (fingers.every(value => value === 'folded')) return 'fist';
-  const thumbOpen = thumbProximal > width * .18 && distance(p[2], p[4]) > thumbProximal * 1.6
-    && distance(p[4], p[5]) > width * .65;
-  return fingers.every(value => value === 'extended') && thumbOpen ? 'open' : 'none';
-}
-
-/** One-shot intent thresholds: 3 frames AND 150 ms, 1 s swipe / 1.6 s palm cooldown. */
-function stepIntent(prior, hands, {now, aspect, mirrored, rotationQuarterTurns}) {
-  const old = prior.intent || createIntent();
-  const orientation = `${mirrored}:${rotationQuarterTurns}`;
-  const viewWidth = rotationQuarterTurns ? 1 : aspect;
-  const cleared = () => ({...createIntent(old.cooldownUntil), lastAt: now, orientation});
-  if (hands.length !== 1) return {intent: cleared(), mode: null};
-  const hand = hands[0], pose = hand.pose;
-  const x = mirrored ? aspect - hand.center.x : hand.center.x;
-  // CSS rotates the mirrored preview clockwise: visible right is raw image up.
-  const center = rotationQuarterTurns ? {x: -hand.center.y, y: x} : {x, y: hand.center.y};
-  const interrupted = old.orientation !== orientation || old.lastAt !== null && (now < old.lastAt || now - old.lastAt > 300)
-    || old.center && distance(center, old.center) > Math.max(hand.width * 2.5, viewWidth * .25);
-  let intent = interrupted ? cleared() : {...old};
-  const previousAt = intent.lastAt;
-  if (pose !== intent.pose) {
-    intent.pose = pose; intent.poseSamples = 1; intent.poseSince = now; intent.poseCenter = center;
-    intent.swipe = null; intent.swipeLocked = false; intent.openFired = false;
-    if (pose === 'point') intent.fistArmedAt = null;
-  } else {
-    intent.poseSamples += 1;
-    if (pose === 'point' && !intent.swipe && distance(center, intent.poseCenter || center) > viewWidth * .045) {
-      intent.poseSamples = 1; intent.poseSince = now; intent.poseCenter = center;
-    }
-  }
-  intent.center = center; intent.lastAt = now; intent.orientation = orientation;
-  if (intent.fistArmedAt !== null && now - intent.fistArmedAt > 1200) intent.fistArmedAt = null;
-  const stable = intent.poseSamples >= 3 && now - intent.poseSince >= 150;
-  if (pose === 'pinch') {
-    intent.pinchActive = true; intent.fistArmedAt = null;
-    return {intent, mode: null};
-  }
-  if (intent.pinchActive && pose === 'point') {
-    // Finish zooming before interpreting a different pose: require a fresh,
-    // stationary folded-thumb hold, then start the swipe at that new baseline.
-    if (!stable || hand.pinch < 1.2) return {intent, mode: 'navigate'};
-    intent.pinchActive = false; intent.swipe = null;
-  } else if (intent.pinchActive && pose !== 'fist') {
-    intent.fistArmedAt = null; return {intent, mode: null};
-  }
-  if (pose === 'fist') {
-    if (stable) intent.pinchActive = false;
-    if (stable && now >= intent.cooldownUntil) intent.fistArmedAt = now;
-    return {intent, mode: 'pose'};
-  }
-  if (pose === 'open') {
-    // An open hand without the preceding fist remains the original pinch zoom.
-    // Only a fist/open sequence reserves the palm pose for the one-shot action.
-    if (intent.fistArmedAt === null && !intent.openFired && prior.mode !== 'pose') return {intent, mode: null};
-    if (stable && intent.fistArmedAt !== null && !intent.openFired && now >= intent.cooldownUntil) {
-      intent.openFired = true; intent.fistArmedAt = null; intent.cooldownUntil = now + 1600;
-      return {intent, mode: 'pose', lineExplode: true};
-    }
-    return {intent, mode: 'pose'};
-  }
-  if (pose !== 'point') return {intent, mode: intent.fistArmedAt === null ? null : 'pose'};
-  if (!stable || intent.swipeLocked || now < intent.cooldownUntil) return {intent, mode: 'navigate'};
-  if (!intent.swipe) {
-    intent.swipe = {origin: center, previous: center, since: now, motionAt: null, samples: 0, travel: 0, direction: 0};
-    return {intent, mode: 'navigate'};
-  }
-  const swipe = intent.swipe = {...intent.swipe};
-  const dx = center.x - swipe.origin.x, dy = center.y - swipe.origin.y;
-  const stepX = center.x - swipe.previous.x;
-  if (swipe.motionAt === null && Math.abs(dx) > viewWidth * .025) swipe.motionAt = previousAt ?? now;
-  if (Math.abs(stepX) > viewWidth * .008) { swipe.samples += 1; swipe.travel += Math.abs(stepX); }
-  const direction = Math.sign(dx);
-  const reversed = swipe.direction && Math.sign(stepX) !== swipe.direction && Math.abs(stepX) > viewWidth * .035;
-  if (!swipe.direction && Math.abs(dx) > viewWidth * .04) swipe.direction = direction;
-  swipe.previous = center;
-  if (Math.abs(stepX) > viewWidth * .20 || reversed || Math.abs(dy) > viewWidth * .12
-    || swipe.motionAt !== null && now - swipe.motionAt > 700) {
-    intent.swipeLocked = true; intent.swipe = null; return {intent, mode: 'navigate'};
-  }
-  if (swipe.motionAt === null && now - swipe.since > 700) {
-    intent.swipe = null; return {intent, mode: 'navigate'};
-  }
-  const elapsed = swipe.motionAt === null ? 0 : now - swipe.motionAt;
-  if (elapsed >= 80 && elapsed <= 700 && swipe.samples >= 3
-    && Math.abs(dx) >= Math.max(viewWidth * .16, hand.width * 1.15)
-    && Math.abs(dy) <= Math.abs(dx) * .45 && Math.abs(dx) / Math.max(swipe.travel, .001) >= .75
-    && Math.abs(dx) / elapsed * 1000 >= viewWidth * .45) {
-    intent.swipeLocked = true; intent.cooldownUntil = now + 1000;
-    return {intent, mode: 'navigate', navigate: dx < 0 ? 'next' : 'previous'};
-  }
-  return {intent, mode: 'navigate'};
+function canPinch(landmarks, hand, aspect) {
+  const point = index => ({x: landmarks[index].x * aspect, y: landmarks[index].y});
+  // A folded thumb or curled index cannot establish a pinch baseline. This
+  // prevents an index swipe or a fist opening from becoming a zoom command.
+  return distance(point(4), hand.center) >= hand.width * 0.55
+    && distance(point(0), point(8)) >= distance(point(0), point(5)) * 1.08;
 }
 
 /**
- * A frame reducer: single-hand pinch opens/closes to zoom; two palms separate to
- * explode. Mode changes require three stable samples and never issue an action.
- * Missing hands preserve the last model state rather than resetting the model.
+ * A frame reducer for single-hand thumb/index pinch zoom only. Three stable
+ * samples establish a fresh baseline. A second hand, tracking loss or a folded
+ * finger cancels that baseline without changing the model.
  */
 export function stepHandGestures(previous, landmarks, { aspect = 1, now, mirrored = true, rotationQuarterTurns = 0 } = {}) {
   const prior = previous || createGestureState();
-  const timestamp = now === undefined ? (prior.intent?.lastAt ?? 0) + FRAME_INTERVAL : now;
+  const timestamp = now === undefined ? (prior.lastAt ?? 0) + FRAME_INTERVAL : now;
+  // The retired action fields remain inert for existing reducer consumers.
   const base = {mode: 'none', hands: 0, zoomFactor: null, explode: null, navigate: null, lineExplode: false};
+  const idle = () => ({...base, state: {...createGestureState(prior.explode), lastAt: timestamp}});
   if (!Number.isFinite(timestamp) || !Number.isFinite(aspect) || aspect <= 0 || typeof mirrored !== 'boolean' || ![0, 1].includes(rotationQuarterTurns)) {
-    const state = createGestureState(prior.explode); state.intent.cooldownUntil = prior.intent?.cooldownUntil || 0;
+    return {...base, state: createGestureState(prior.explode)};
+  }
+  const detected = Array.isArray(landmarks) ? landmarks : [];
+  const measured = detected.map(hand => measureHand(hand, aspect));
+  base.hands = measured.filter(Boolean).length;
+  // Check the raw count too: an invalid second detection must not let the
+  // remaining hand take over a previously established zoom baseline.
+  if (detected.length !== 1 || !measured[0]) return idle();
+  const hand = measured[0];
+  if (!canPinch(detected[0], hand, aspect)) return idle();
+  const orientation = `${mirrored}:${rotationQuarterTurns}`;
+  const interrupted = prior.lastAt !== null && (timestamp < prior.lastAt || timestamp - prior.lastAt > 300)
+    || prior.orientation !== orientation
+    || prior.center && distance(hand.center, prior.center) > Math.max(hand.width * 1.8, 0.22);
+  const continuing = prior.mode === 'zoom' && !interrupted && Number.isFinite(prior.smooth);
+  // Starting with the thumb/index near each other distinguishes deliberate
+  // pinch zoom from simply showing an open palm. Once engaged, they can widen.
+  if (!continuing && hand.pinch > 1.05) return idle();
+  const smooth = continuing ? prior.smooth + (hand.pinch - prior.smooth) * 0.32 : hand.pinch;
+  const state = continuing
+    ? {...prior, samples: prior.samples + 1, smooth, center: hand.center, lastAt: timestamp}
+    : {...createGestureState(prior.explode), mode: 'zoom', samples: 1, smooth, center: hand.center, lastAt: timestamp, orientation};
+  base.mode = 'zoom';
+  if (state.samples <= 3) {
+    state.applied = smooth;
     return {...base, state};
   }
-  const hands = (Array.isArray(landmarks) ? landmarks : []).map(hand => {
-    const measured = measureHand(hand, aspect);
-    return measured ? {...measured, pose: handPose(hand, aspect, measured.width)} : null;
-  }).filter(Boolean).slice(0, 2);
-  const discrete = stepIntent(prior, hands, {now: timestamp, aspect, mirrored, rotationQuarterTurns});
-  base.hands = hands.length;
-  if (discrete.mode) {
-    const state = {...createGestureState(prior.explode), mode: discrete.mode, samples: discrete.intent.poseSamples, intent: discrete.intent};
-    return {...base, mode: discrete.mode, navigate: discrete.navigate || null, lineExplode: !!discrete.lineExplode, state};
-  }
-  const mode = hands.length === 2 ? 'explode' : hands.length === 1 ? 'zoom' : 'none';
-  base.mode = mode;
-  if (mode === 'none') return { ...base, state: {...createGestureState(prior.explode), intent: discrete.intent} };
-  const center = hands[0].center;
-  const handChanged = mode === 'zoom' && prior.center && distance(center, prior.center) > Math.max(hands[0].width * 1.8, 0.22);
-  const metric = mode === 'zoom' ? hands[0].pinch : distance(hands[0].center, hands[1].center) / ((hands[0].width + hands[1].width) / 2);
-  const restarted = prior.mode !== mode || handChanged || !Number.isFinite(prior.smooth);
-  const smooth = restarted ? metric : prior.smooth + (metric - prior.smooth) * 0.32;
-  const state = restarted
-    ? { ...createGestureState(prior.explode), mode, samples: 1, smooth, center }
-    : { ...prior, samples: prior.samples + 1, smooth, center };
-  state.intent = discrete.intent;
-  if (state.samples <= 3) {
-    state.anchor = smooth;
+  const ratio = smooth / state.applied;
+  if (Math.abs(Math.log(ratio)) >= 0.018) {
+    base.zoomFactor = clamp(Math.pow(ratio, 0.72), 0.94, 1.06);
     state.applied = smooth;
-    state.anchorExplode = state.explode;
-    return { ...base, state };
   }
-  if (mode === 'zoom') {
-    const ratio = smooth / state.applied;
-    if (Math.abs(Math.log(ratio)) >= 0.018) {
-      base.zoomFactor = clamp(Math.pow(ratio, 0.72), 0.94, 1.06);
-      state.applied = smooth;
-    }
-  } else {
-    const measuredTarget = clamp(state.anchorExplode + (smooth - state.anchor) * 0.25, 0, 1);
-    const target = measuredTarget < 0.006 ? 0 : measuredTarget > 0.994 ? 1 : measuredTarget;
-    const delta = target - state.explode;
-    if (Math.abs(delta) >= 0.012 || ((target === 0 || target === 1) && delta !== 0)) {
-      state.explode = clamp(state.explode + clamp(delta, -0.055, 0.055), 0, 1);
-      base.explode = state.explode;
-    }
-  }
-  return { ...base, state };
+  return {...base, state};
 }
 
 function loadLibrary() {
@@ -326,11 +204,8 @@ function startupErrorMessage(error) {
 }
 
 export class HandGestureController {
-  constructor({ onZoom, onExplode, onNavigate, onLineExplode, getGestureOrientation, onStatus, onPreview } = {}) {
+  constructor({ onZoom, getGestureOrientation, onStatus, onPreview } = {}) {
     this.onZoom = onZoom;
-    this.onExplode = onExplode;
-    this.onNavigate = onNavigate;
-    this.onLineExplode = onLineExplode;
     this.getGestureOrientation = getGestureOrientation;
     this.onStatus = onStatus;
     this.onPreview = onPreview;
@@ -356,21 +231,16 @@ export class HandGestureController {
 
   get running() { return this._running; }
 
-  /** Sync this when a touch gesture or slider changes the model's explode value. */
+  /** Compatibility sync for touch/slider state; hand tracking never changes it. */
   setExplode(value) {
     const explode = clamp(Number(value) || 0, 0, 1);
-    // Do not reset the reference on our own onExplode callback's echo.
     if (Math.abs(explode - this._gesture.explode) < 0.001) return;
     this.resetGestures(explode);
   }
 
-  /** Equipment changes cancel old poses but retain cooldown; a new session clears it. */
+  /** Equipment changes require a fresh pinch baseline. */
   resetGestures(explode = 0) {
-    const previous = this._gesture;
-    const now = Number.isFinite(previous.intent?.lastAt) ? previous.intent.lastAt : Number.isFinite(this._lastFrame) ? this._lastFrame : performance.now();
     this._gesture = createGestureState(explode);
-    this._gesture.intent.cooldownUntil = Math.max(previous.intent?.cooldownUntil || 0, now + 600);
-    this._gesture.intent.lastAt = now;
   }
 
   _status(state, message, hands, force = false, stage) {
@@ -507,7 +377,7 @@ export class HandGestureController {
       this._gesture = createGestureState(this._gesture.explode);
       this._lastFrame = -Infinity;
       this._lastVideoTime = -1;
-      this._status('ready', '食指左右划切设备；握拳后张掌拆整线；捏合缩放，双手拆部件。', 0, true);
+      this._status('ready', '隔空缩放已就绪：单手拇指与食指先靠近，再张开或捏合缩放。', 0, true);
       this._tick(generation);
       return true;
     } catch (error) {
@@ -541,20 +411,13 @@ export class HandGestureController {
           catch (error) { console.warn('Hand orientation callback failed:', error?.message || error); }
           const gesture = stepHandGestures(this._gesture, result.landmarks, { aspect: video.videoWidth / video.videoHeight, now, ...orientation });
           this._gesture = gesture.state;
-          if (gesture.navigate) notify(this.onNavigate, gesture.navigate);
-          else if (gesture.lineExplode) notify(this.onLineExplode);
-          else {
-            if (gesture.zoomFactor !== null) notify(this.onZoom, gesture.zoomFactor);
-            if (gesture.explode !== null) notify(this.onExplode, gesture.explode);
-          }
+          if (gesture.zoomFactor !== null) notify(this.onZoom, gesture.zoomFactor);
           if (!this._running || generation !== this._generation) return;
-          if (gesture.navigate) this._status('tracking', gesture.navigate === 'next' ? '已切换下一台设备。' : '已切换上一台设备。', gesture.hands, true);
-          else if (gesture.lineExplode) this._status('tracking', '整线已拆为六台设备，可继续选择设备查看内部结构。', gesture.hands, true);
-          else if (!gesture.hands) this._status('searching', '把手放入预览框：食指左右划切设备，握拳后张掌拆整线。', 0);
-          else if (gesture.mode === 'navigate') this._status('tracking', '仅伸食指：向屏幕左划下一台，向右划上一台。', gesture.hands);
-          else if (gesture.mode === 'pose') this._status('tracking', gesture.state.intent.pose === 'fist' ? '保持握拳片刻，再张开五指拆分整线。' : '握拳后张开五指，可把整线展开为六台设备。', gesture.hands);
-          else if (gesture.state.samples <= 3) this._status('tracking', '已识别，保持片刻建立手势基准…', gesture.hands);
-          else this._status('tracking', gesture.mode === 'zoom' ? '单手缩放：拇指与食指张开放大、捏合缩小。' : '双手拆装：向两侧拉开展开，向中间合拢复原。', gesture.hands);
+          if (!gesture.hands) this._status('searching', '把一只手放入预览框，拇指与食指先靠近，再张开或捏合缩放。', 0);
+          else if (gesture.hands !== 1) this._status('tracking', '请仅保留一只手在预览框内，使用拇指与食指捏合缩放。', gesture.hands);
+          else if (gesture.mode !== 'zoom') this._status('tracking', '拇指与食指先靠近并保持片刻，再张开或捏合缩放。', gesture.hands);
+          else if (gesture.state.samples <= 3) this._status('tracking', '已识别，保持片刻建立缩放基准…', gesture.hands);
+          else this._status('tracking', '单手缩放：拇指与食指张开放大、捏合缩小。', gesture.hands);
         } catch (error) {
           if (generation === this._generation) {
             this.stop();

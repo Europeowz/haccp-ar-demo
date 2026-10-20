@@ -1,9 +1,8 @@
 import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
-import { setupOrientation } from './orientation.js?v=6';
-import { setupWalkthrough } from './walkthrough.js?v=11';
+import { setupOrientation } from './orientation.js?v=13';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
-import { setupHaccpLink } from './haccp-link.js?v=12';
+import { setupHaccpLink } from './haccp-link.js?v=13';
 
 // Switch these paths only after the corresponding local assets exist.
 const ASSETS = {
@@ -40,7 +39,6 @@ let dualAbort = null;
 let dualTimer = 0;
 let fittedRadius = 8;
 let framingRevision = 0;
-let tourFramingRevision = 0;
 const PART_COPY = {
   base: '承托瓶体并调整瓶口高度，让瓶口与灌装阀对齐。',
   bottle: '剖面展示瓶体与液位，便于理解灌装位置与容器关系。',
@@ -71,7 +69,6 @@ const haccpUi = caseId === demoCase.id ? setupHaccpLink({mount: $('haccp-model-l
 },onScenario: ({processId,step}) => {
   stage.dataset.haccpProcess=processId;stage.dataset.haccpScenario=String(step);
 }}) : null;
-const spatialHaccpUi = caseId === demoCase.id ? setupHaccpLink({mount: $('spatial-haccp')}) : null;
 
 function notify(message, duration = 6500) {
   clearTimeout(toastTimer);
@@ -79,7 +76,6 @@ function notify(message, duration = 6500) {
   $('status').hidden = false;
   if (duration) toastTimer = setTimeout(() => { $('status').hidden = true; }, duration);
 }
-function stopCamera() { window.ExhibitCamera?.stop(); }
 function isEquipmentView() { return state.detail && state.detailScope !== 'picker'; }
 function isLineStructure() { return state.detail && state.detailScope === 'line'; }
 function acceptsModelEvent(event, requireLoaded = false) {
@@ -90,10 +86,9 @@ function acceptsModelEvent(event, requireLoaded = false) {
     return new URL(viewer.src, document.baseURI).href === expected && (!source || new URL(source, document.baseURI).href === expected);
   } catch (_) { return false; }
 }
-function isRotatedStage() { return stage.classList.contains('force-landscape') && innerHeight > innerWidth; }
 function stagePoint(x, y) {
   const rect = stage.getBoundingClientRect();
-  return isRotatedStage() ? { x: y - rect.top, y: rect.right - x } : { x: x - rect.left, y: y - rect.top };
+  return { x: x - rect.left, y: y - rect.top };
 }
 function setPlaying(value) {
   state.playing = Boolean(value && state.loaded && !state.detail && viewer.availableAnimations?.length);
@@ -213,11 +208,10 @@ function updateAnalysisLink() {
   const part = partSpec?.parts.find((item) => item.id === selectedPart);
   const processId = isEquipmentView() ? (state.detailScope === 'valve' ? 'p03' : part?.process || state.equipmentId) : state.selected;
   const process = demoCase.processes.find((item) => item.id === processId) || demoCase.processes[2];
-  const params = new URLSearchParams({ case: caseId, view: 'result', process: process.id, rev: '12' });
+  const params = new URLSearchParams({ case: caseId, view: 'result', process: process.id, rev: '13' });
   $('analysis-link').href = `analysis.html?${params}`;
   $('analysis-link').firstElementChild.textContent = state.detail && state.detailScope === 'valve' ? '查看灌装 HACCP' : '查看 HACCP 方案';
   haccpUi?.setProcess(process.id, {context:isEquipmentView() ? `${partSpec?.name || $('detail-title').textContent}${part?.name ? ` / ${part.name}` : ''}` : process.name});
-  if ($('spatial-session').hidden) spatialHaccpUi?.setProcess(process.id, {context:'空间产线示意'});
 }
 function stopFlowDrawing() { cancelAnimationFrame(flowFrame); flowFrame = 0; }
 function drawFlow(now) {
@@ -415,15 +409,11 @@ function animateExplosion(value) {
   };
   explosionFrame = requestAnimationFrame(step);
 }
-const touchController = new TouchStructureController({ element: viewer, onZoom: applyZoom, onRotate: applyRotate, onExplode: setExplosion, getExplode: () => state.explosion, mapPoint: (event) => {
-  if (!isRotatedStage()) return { x: event.clientX, y: event.clientY };
-  const rect = viewer.getBoundingClientRect();
-  return { x: event.clientY - rect.top, y: rect.right - event.clientX };
-} });
+const touchController = new TouchStructureController({ element: viewer, onZoom: applyZoom, onRotate: applyRotate });
 function updateViewControls() {
   if (!state.loaded) return;
   if (stage.inert) { touchController.disable(); return; }
-  if (isEquipmentView() || isRotatedStage()) {
+  if (isEquipmentView()) {
     viewer.removeAttribute('camera-controls');
     touchController.enable();
   } else {
@@ -449,7 +439,6 @@ function switchSource(src) {
   $('reset').disabled = true;
   $('xray').disabled = true;
   $('flow').disabled = true;
-  $('native-ar').disabled = true;
   ['assembled', 'exploded', 'explode-range', 'zoom-in', 'zoom-out'].forEach((id) => { $(id).disabled = true; });
   $('load-label').textContent = state.detail ? '正在呈现设备结构' : '正在呈现产线模型';
   $('load-progress').value = 0;
@@ -516,17 +505,17 @@ function setEquipment(id, innerValve = false) {
   updateParts();
   switchSource(partSpec.src);
 }
-async function setLineStructure({ expanded = 1, fromGesture = false } = {}) {
+async function setLineStructure({ expanded = 1 } = {}) {
   if (!state.loaded || stage.inert || document.hidden) return false;
   if (isLineStructure()) {
     handController?.resetGestures?.(state.explosion);
     animateExplosion(expanded); return true;
   }
-  const version = sourceVersion, token = handGeneration;
+  const version = sourceVersion;
   let spec;
   try { spec = await prepareLineStructure(); }
   catch (_) { notify('整线结构暂未准备完成，可继续选择单台设备，稍后重试。'); return false; }
-  if (version !== sourceVersion || !state.loaded || stage.inert || document.hidden || (fromGesture && (!handWanted || token !== handGeneration))) return false;
+  if (version !== sourceVersion || !state.loaded || stage.inert || document.hidden) return false;
   cancelAnimationFrame(explosionFrame);
   handController?.resetGestures?.(0);
   if (state.xray) setXray(false);
@@ -537,19 +526,10 @@ async function setLineStructure({ expanded = 1, fromGesture = false } = {}) {
   $('detail-panel').hidden = false; $('detail').setAttribute('aria-pressed', 'true');
   $('equipment-select').value = 'line'; $('scope-line').hidden = false; $('scope-valve').hidden = true;
   $('detail-level').textContent = '整线 → 六台独立设备'; $('detail-title').textContent = '整线设备拆分';
-  $('detail-copy').textContent = '六台完整设备分开展示。食指左划下一台、右划上一台，继续查看单机内部结构。';
+  $('detail-copy').textContent = '六台完整设备分开展示。选择设备编号查看工序，也可选一台设备查看内部部件。';
   viewer.removeAttribute('ios-src'); viewer.removeAttribute('camera-controls');
   updateParts(); updateAnalysisLink(); switchSource(spec.src);
-  notify('正在展开六台完整设备；可用“复原”按钮或双手合拢收回。', 3500);
-  return true;
-}
-function navigateEquipment(direction) {
-  if (!state.loaded || stage.inert || document.hidden || !equipmentCatalog.length || !['next', 'previous'].includes(direction)) return false;
-  const current = state.equipmentId || (isLineStructure() ? selectedPart : state.selected);
-  const index = Math.max(0, equipmentCatalog.findIndex(item => item.id === current));
-  const next = equipmentCatalog[(index + (direction === 'next' ? 1 : -1) + equipmentCatalog.length) % equipmentCatalog.length];
-  setEquipment(next.id);
-  notify(`${direction === 'next' ? '下一台' : '上一台'}：${next.name}（${equipmentCatalog.indexOf(next) + 1}/6）`, 2400);
+  notify('正在展开六台完整设备；可用“复原”按钮收回。', 3500);
   return true;
 }
 function stopHands(resumeAR = true) {
@@ -559,7 +539,7 @@ function stopHands(resumeAR = true) {
   handGeneration += 1;
   handController?.stop();
   handController = null;
-  $('hand-label').textContent = '隔空手势';
+  $('hand-label').textContent = '隔空缩放';
   $('hand-control').setAttribute('aria-pressed', 'false');
   $('gesture-panel').hidden = true;
   $('hand-preview').replaceChildren();
@@ -585,31 +565,27 @@ async function startHands() {
     } else notify(message);
   };
   $('hand-control').setAttribute('aria-pressed', 'true');
-  $('hand-label').textContent = '取消手势';
+  $('hand-label').textContent = '取消缩放';
   $('gesture-panel').hidden = false;
   $('hand-state').textContent = '正在加载本地手势识别';
   stage.classList.add('hands-active');
   requestAnimationFrame(frameModel);
   try {
-    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=12'), import('./dual-camera.js?v=6')]);
+    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=13'), import('./dual-camera.js?v=6')]);
     if (token !== handGeneration || !handWanted) return;
     let latestMessage = '', frontVideo = null, dualVerified = false;
     const activeGesture = () => token === handGeneration && handWanted && state.loaded && !stage.inert && !document.hidden && !haccpUi?.isOpen();
     const controller = new HandGestureController({
       onZoom: (factor) => { if (activeGesture()) applyZoom(factor); },
-      onExplode: (value) => { if (activeGesture()) setExplosion(value, false); },
-      onNavigate: (direction) => { if (activeGesture()) navigateEquipment(direction); },
-      onLineExplode: () => { if (activeGesture()) void setLineStructure({expanded: 1, fromGesture: true}); },
-      getGestureOrientation: () => ({ mirrored: true, rotationQuarterTurns: isRotatedStage() ? 1 : 0 }),
       onStatus: ({ state: status, message, hands }) => {
         if (token !== handGeneration || !handWanted) return;
         latestMessage = message;
         $('hand-state').textContent = message;
-        $('hand-help').textContent = `${dualVerified ? '前后双摄 · ' : '前摄手势 · '}食指左划下一台、右划上一台 · 握拳后张掌展开整线`;
-        if (status === 'ready' || status === 'tracking' || status === 'searching') $('hand-label').textContent = '关闭手势';
+        $('hand-help').textContent = `${dualVerified ? '前后双摄 · ' : '前摄手势 · '}单手捏合缩放 · 拆分请使用滑杆或按钮`;
+        if (status === 'ready' || status === 'tracking' || status === 'searching') $('hand-label').textContent = '关闭缩放';
         if (status === 'error' || status === 'stopped') queueMicrotask(() => {
           if (token !== handGeneration || !handWanted) return;
-          void failedHands(latestMessage || '隔空手势已停止，可以继续使用触屏和滑杆。');
+          void failedHands(latestMessage || '隔空缩放已停止，可以继续使用触屏和滑杆。');
         });
       },
       onPreview: (video) => {
@@ -644,7 +620,7 @@ async function startHands() {
           return;
         }
         dualVerified = true;
-        $('hand-help').textContent = '前后双摄 · 食指左划下一台、右划上一台 · 握拳后张掌展开整线';
+        $('hand-help').textContent = '前后双摄 · 单手捏合缩放 · 拆分请使用滑杆或按钮';
         dualTimer = setTimeout(() => void check(), 1500);
       };
       $('hand-state').textContent = '正在确认前后双摄同时出画';
@@ -655,11 +631,6 @@ async function startHands() {
     await failedHands('手势资源暂不可用，可继续使用触屏与拆分滑杆，稍后再试。');
   }
 }
-function refreshAR() {
-  $('native-ar').disabled = caseId !== demoCase.id;
-  $('native-ar').title = '通过本站空间定位将示意产线放在桌面，无需 Google 服务';
-}
-
 let mainPrepared = false;
 async function ensureMainModel() {
   if (mainPrepared || caseId !== demoCase.id) return;
@@ -670,80 +641,6 @@ async function ensureMainModel() {
   viewer.src = ASSETS.line;
   if (viewer.loaded) viewer.dispatchEvent(new Event('load'));
 }
-
-const walkthrough = setupWalkthrough({
-  panel: $('walkthrough-panel'), viewer: $('walkthrough-viewer'), openButton: $('walkthrough-open'),
-  closeButton: $('walkthrough-close'), startButton: $('walkthrough-start'), retryButton: $('walkthrough-retry'),
-  status: $('walkthrough-status'), dimensions: $('walkthrough-dimensions'), progress: $('walkthrough-progress'),
-  canvas: $('spatial-canvas'), session: $('spatial-session'), placeButton: $('spatial-place'),
-  resetButton: $('spatial-reset'), exitButton: $('spatial-exit'), hudStatus: $('spatial-status'), title: $('walkthrough-title'), diagnostics: $('spatial-diagnostics'),
-  onOpen: () => {
-    haccpUi?.close(); spatialHaccpUi?.close();
-    stopHands(false); stopCamera(); setPlaying(false); touchController.disable(); stopFlowDrawing();
-    stage.inert = true; stage.setAttribute('aria-hidden', 'true');
-  },
-  onClose: () => {
-    tourTouch.disable();
-    void ensureMainModel();
-    stage.inert = false; stage.removeAttribute('aria-hidden');
-    if (!document.hidden) void window.ExhibitCamera?.resume();
-    setPlaying(!reducedMotion.matches && !document.hidden && !state.detail);
-    updateViewControls();
-    if (state.flow && !stage.inert) { stopFlowDrawing(); flowFrame = requestAnimationFrame(drawFlow); }
-  },
-});
-const tourViewer = $('walkthrough-viewer');
-if (globalThis.MutationObserver) new MutationObserver(() => {if ($('spatial-session').hidden) spatialHaccpUi?.close();}).observe($('spatial-session'), {attributes:true,attributeFilter:['hidden']});
-const tourPanel = $('walkthrough-panel');
-const tourTouch = new TouchStructureController({
-  element: tourViewer, getExplode: () => 0, onExplode: () => {},
-  mapPoint: (event) => {
-    const rect = tourViewer.getBoundingClientRect();
-    return { x: event.clientY - rect.top, y: rect.right - event.clientX };
-  },
-  onZoom: (factor) => {
-    if (!tourViewer.loaded) return;
-    const orbit = tourViewer.getCameraOrbit();
-    tourViewer.cameraOrbit = `${orbit.theta}rad ${orbit.phi}rad ${Math.max(0.15, Math.min(100, orbit.radius / factor))}m`;
-    tourViewer.jumpCameraToGoal?.();
-  },
-  onRotate: ({ azimuthDelta, polarDelta }) => {
-    if (!tourViewer.loaded) return;
-    const orbit = tourViewer.getCameraOrbit();
-    tourViewer.cameraOrbit = `${orbit.theta + azimuthDelta}rad ${Math.max(0.05, Math.min(Math.PI / 2, orbit.phi + polarDelta))}rad ${orbit.radius}m`;
-    tourViewer.jumpCameraToGoal?.();
-  },
-});
-async function updateTourView() {
-  if (tourPanel.hidden || !tourViewer.loaded || walkthrough.getState().active) { tourTouch.disable(); walkthrough.resize(); return; }
-  const token = ++tourFramingRevision;
-  const rotated = tourPanel.classList.contains('force-landscape') && innerHeight > innerWidth;
-  if (rotated) { tourViewer.removeAttribute('camera-controls'); tourTouch.enable(); }
-  else { tourTouch.disable(); tourViewer.setAttribute('camera-controls', ''); }
-  const bounds = walkthrough.getState().metadata?.bounds || viewerBounds(tourViewer);
-  if (!bounds) return;
-  tourViewer.fieldOfView = '38deg';
-  await tourViewer.updateComplete;
-  if (token !== tourFramingRevision || tourPanel.hidden || walkthrough.getState().active) return;
-  tourViewer.jumpCameraToGoal?.();
-  const fit = fitCameraToBounds({ bounds, aspect: tourViewer.clientWidth / Math.max(1, tourViewer.clientHeight),
-    theta: 28 * Math.PI / 180, phi: 65 * Math.PI / 180,
-    fieldOfView: tourViewer.getFieldOfView?.() || 38, padding: 1.10 });
-  tourViewer.setAttribute('max-camera-orbit', `auto 90deg ${fit.radius * 5}m`);
-  tourViewer.cameraTarget = `${fit.target.x}m ${fit.target.y}m ${fit.target.z}m`;
-  tourViewer.cameraOrbit = `${fit.theta}rad ${fit.phi}rad ${fit.radius}m`;
-  await tourViewer.updateComplete;
-  if (token !== tourFramingRevision || tourPanel.hidden || walkthrough.getState().active) return;
-  tourViewer.jumpCameraToGoal?.();
-}
-
-setupOrientation({ stage: tourPanel, button: $('tour-orientation'), fullscreenTarget: document.documentElement,
-  onChange: () => requestAnimationFrame(updateTourView) });
-tourViewer.addEventListener('load', updateTourView);
-setupOrientation({ stage: tourPanel, button: $('spatial-orientation'), fullscreenTarget: document.documentElement,
-  onChange: () => requestAnimationFrame(updateTourView) });
-window.addEventListener('resize', () => requestAnimationFrame(updateTourView));
-$('walkthrough-open').disabled = caseId !== demoCase.id;
 
 $('about-toggle').addEventListener('click', () => {
   const expanded = $('about-toggle').getAttribute('aria-expanded') !== 'true';
@@ -768,7 +665,6 @@ $('equipment-select').addEventListener('change', (event) => { if (event.target.v
 $('explode-range').addEventListener('input', (event) => setExplosion(Number(event.target.value) / 100));
 $('zoom-in').addEventListener('click', () => applyZoom(1.18));
 $('zoom-out').addEventListener('click', () => applyZoom(1 / 1.18));
-$('native-ar').addEventListener('click', () => void walkthrough.open('tabletop'));
 $('retry-model').addEventListener('click', () => {
   const src = isEquipmentView() ? partSpec.src : ASSETS.line;
   switchSource(`${src}${src.includes('?') ? '&' : '?'}retry=${Date.now()}`);
@@ -792,7 +688,6 @@ viewer.addEventListener('load', async (event) => {
   frameModel();
   inspectMaterials();
   updateParts();
-  refreshAR();
   setPlaying(!reducedMotion.matches && !document.hidden && !state.detail);
   if (isEquipmentView()) applyExplosion(state.explosion);
   if (pendingExplosion !== null) {
@@ -811,7 +706,7 @@ viewer.addEventListener('error', (event) => {
   cancelAnimationFrame(explosionFrame);
   touchController.disable();
   stopFlowDrawing();
-  ['play', 'reset', 'xray', 'flow', 'native-ar', 'assembled', 'exploded', 'explode-range', 'zoom-in', 'zoom-out'].forEach((id) => { $(id).disabled = true; });
+  ['play', 'reset', 'xray', 'flow', 'assembled', 'exploded', 'explode-range', 'zoom-in', 'zoom-out'].forEach((id) => { $(id).disabled = true; });
   $('model-error').hidden = false;
   stage.classList.add('loaded');
 });
@@ -868,8 +763,7 @@ if (caseId !== demoCase.id) {
   });
   selectProcess(state.selected, false);
   void prepareParts();
-  if (new URLSearchParams(location.search).get('tour') === 'lifesize') void walkthrough.open();
-  else void ensureMainModel();
+  void ensureMainModel();
 }
 // Observe the real drawing area, including permission/fullscreen transitions
 // and appearance of a tool panel, instead of assuming a phone's screen ratio.
@@ -881,11 +775,9 @@ if (globalThis.ResizeObserver) {
       layoutFrame = 0;
       syncSceneLayout();
       if (state.loaded && !stage.inert) void frameModel();
-      void updateTourView();
     });
   };
   const layoutObserver = new ResizeObserver(scheduleLayout);
   layoutObserver.observe(viewer);
-  layoutObserver.observe(tourViewer);
   for (const element of [stage, stage.querySelector('.bottom-dock'), $('detail-panel')]) layoutObserver.observe(element);
 }

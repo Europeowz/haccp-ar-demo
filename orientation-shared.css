@@ -1,25 +1,10 @@
-/* Orientation state is shared; each feature keeps its own content layout. */
+/* Native viewport direction and safe areas govern every surface. */
 .orientation-surface { --orientation-safe-top: env(safe-area-inset-top, 0px); --orientation-safe-right: env(safe-area-inset-right, 0px); --orientation-safe-bottom: env(safe-area-inset-bottom, 0px); --orientation-safe-left: env(safe-area-inset-left, 0px); }
-@media screen and (orientation: portrait) {
-  .orientation-surface.force-landscape {
-    position: fixed; inset: auto; left: 50%; top: 50%;
-    width: 100dvh; height: 100dvw; max-width: none; max-height: none;
-    transform: translate(-50%, -50%) rotate(90deg); transform-origin: center;
-    --orientation-safe-top: env(safe-area-inset-right, 0px);
-    --orientation-safe-right: env(safe-area-inset-bottom, 0px);
-    --orientation-safe-bottom: env(safe-area-inset-left, 0px);
-    --orientation-safe-left: env(safe-area-inset-top, 0px);
-  }
-}
 
-/* The report scrolls inside its rotated viewport; print content stays outside. */
+/* The report keeps document scrolling in either physical device direction. */
 #analysis-shell { --analysis-viewport-height: 100dvh; min-height: 100dvh; container: analysis-page / inline-size; background: var(--page, #f3f5f7); }
 #analysis-shell .analysis-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 #analysis-orientation { flex: none; min-height: 42px; white-space: nowrap; }
-#analysis-shell.force-landscape { height: 100dvh; overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-@media screen and (orientation: portrait) {
-  #analysis-shell.force-landscape { --analysis-viewport-height: 100dvw; height: 100dvw; min-height: 0; }
-}
 @media screen {
 @container analysis-page (min-width: 650px) {
   #analysis-shell .topbar { padding: 10px 18px; min-height: 64px; gap: 16px; }
@@ -53,9 +38,8 @@
 }
 }
 @media screen and (max-width: 560px) {
-  #analysis-shell:not(.force-landscape) { font-size: 13px; }
+  #analysis-shell { font-size: 13px; }
 }
 @media print {
-  .orientation-surface.force-landscape { position: static !important; inset: auto !important; width: auto !important; height: auto !important; min-height: 0 !important; overflow: visible !important; transform: none !important; }
   #analysis-orientation { display: none !important; }
 }

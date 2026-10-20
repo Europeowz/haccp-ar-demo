@@ -113,7 +113,7 @@
     });
   }
   function primeCameraPermission() {
-    if (document.hidden || document.getElementById('camera-feed') || !validCase || state.mode !== 'ar' || parameters.get('tour') === 'lifesize' || !window.isSecureContext
+    if (document.hidden || document.getElementById('camera-feed') || !validCase || state.mode !== 'ar' || !window.isSecureContext
       || !navigator.mediaDevices?.getUserMedia) return;
     const policy = document.permissionsPolicy || document.featurePolicy;
     if (policy?.allowsFeature && !policy.allowsFeature('camera')) return;
@@ -226,7 +226,7 @@
     elements.fallback?.addEventListener('click', continue3D);
     document.addEventListener('visibilitychange', () => { if (document.hidden) pauseForBackground(); else restoreForeground(); });
     window.addEventListener('pagehide', pauseForBackground); window.addEventListener('pageshow', restoreForeground);
-    resolveReady(); render(); if (validCase && state.mode === 'ar' && !suspended && parameters.get('tour') !== 'lifesize') void start();
+    resolveReady(); render(); if (validCase && state.mode === 'ar' && !suspended) void start();
   }
   primeCameraPermission();
   if (document.readyState === 'loading' && !document.getElementById('camera-feed')) {

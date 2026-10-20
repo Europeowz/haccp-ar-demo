@@ -36,9 +36,6 @@
 .haccp-links p { font-size: 10px; }
 .haccp-inline { margin: 0 0 20px; }
 #haccp-assurance { margin-bottom: 18px; }
-#spatial-haccp { position: absolute; z-index: 8; left: max(14px,env(safe-area-inset-left)); right: max(14px,env(safe-area-inset-right)); bottom: max(94px,calc(env(safe-area-inset-bottom) + 94px)); }
-#spatial-haccp .haccp-peek { width: min(430px,100%); margin-left: auto; }
-.walkthrough > .haccp-spatial { inset: 64px 14px 85px; max-width: 760px; }
 @container stage (min-aspect-ratio: 1 / 1) {
   #stage .haccp-peek { padding: 4px 8px; margin-bottom: 4px; }
   #stage .haccp-peek strong { font-size: 10px; }
@@ -54,4 +51,4 @@
   .haccp-heading { padding: 10px 12px; }
   .haccp-body { padding: 12px; }
 }
-@media print { .haccp-peek, .haccp-panel, #spatial-haccp { display: none !important; } }
+@media print { .haccp-peek, .haccp-panel { display: none !important; } }
