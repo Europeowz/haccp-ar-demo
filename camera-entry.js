@@ -42,8 +42,8 @@
       elements.button.setAttribute('aria-label', state.mode === 'ar' ? '切换 3D 浏览' : '返回 AR 实景');
     }
     if (elements.label) elements.label.textContent = state.mode === 'ar' ? '切换 3D' : '返回 AR';
-    if (elements.mode) elements.mode.textContent = active ? 'AR 实景预览' : opening ? '正在进入 AR' : '3D 展台';
-    if (elements.instruction) elements.instruction.textContent = active
+    if (elements.mode) elements.mode.textContent = state.reason === 'hands' ? '前摄手势模式' : active ? 'AR 实景预览' : opening ? '正在进入 AR' : '3D 展台';
+    if (elements.instruction) elements.instruction.textContent = state.reason === 'hands' ? '后置实景已暂停 · 关闭手势后恢复' : active
       ? '产线已呈现 · 拖动旋转 · 双指缩放' : opening ? '请允许浏览器权限' : '拖动旋转 · 双指缩放';
   }
   function publish(phase, message, reason = '') {
@@ -66,9 +66,9 @@
     release(previous);
   }
   // Host tools suspend the rear feed without changing the user's AR/3D choice.
-  function stop() {
+  function stop({reason = 'paused', message = 'AR 实景暂时暂停，可继续查看模型。'} = {}) {
     suspended = true; resumeOnVisible = false; clearSession();
-    publish('off', 'AR 实景暂时暂停，可继续查看模型。', 'paused');
+    publish('off', message, reason);
   }
   function continue3D() {
     state.mode = '3d'; suspended = false; resumeOnVisible = false; clearSession();

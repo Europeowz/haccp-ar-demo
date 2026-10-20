@@ -243,13 +243,13 @@ export class HandGestureController {
     this._gesture = createGestureState(explode);
   }
 
-  _status(state, message, hands, force = false, stage) {
+  _status(state, message, hands, force = false, stage, errorName) {
     const now = performance.now();
     const key = `${state}:${message}:${hands ?? ''}`;
     if (!force && this._statusKey === key && now - this._statusAt < 1200) return;
     this._statusKey = key;
     this._statusAt = now;
-    notify(this.onStatus, { state, message, ...(hands === undefined ? {} : { hands }), ...(stage ? { stage } : {}) });
+    notify(this.onStatus, { state, message, ...(hands === undefined ? {} : { hands }), ...(stage ? { stage } : {}), ...(errorName ? { errorName } : {}) });
   }
 
   start({ stream = null, ownsStream = true, mirrored = true, facingMode = 'user', rotationQuarterTurns = 0 } = {}) {
@@ -284,7 +284,7 @@ export class HandGestureController {
     const current = () => generation === this._generation && !abort.signal.aborted;
     const adoptStream = () => {
       const tracks = videoTracks(stream);
-      if (!tracks.length || tracks.every(track => track.readyState === 'ended')) throw new Error('Camera video unavailable');
+      if (!tracks.length || tracks.every(track => track.readyState === 'ended')) throw Object.assign(new Error('Camera video unavailable'),{name:'NotReadableError',stage:'camera'});
       this._stream = stream;
       this._ownsStream = ownsStream;
       streamAdopted = true;
@@ -292,7 +292,7 @@ export class HandGestureController {
         const handler = () => {
           if (!current() || this._stream !== stream) return;
           this.stop();
-          this._status('error', '手势相机已断开，请重新开启；触屏操作仍可使用。', 0, true);
+          this._status('error', '手势相机已断开，请重新开启；触屏操作仍可使用。', 0, true, 'camera', 'TrackEndedError');
         };
         this._trackListeners.push({ track, handler });
         track.addEventListener?.('ended', handler, { once: true });
@@ -356,6 +356,7 @@ export class HandGestureController {
       if (!provided && facingMode === 'user' && videoTracks(stream).some(track => track.getSettings?.().facingMode === 'environment')) {
         const error = new Error('Front camera unavailable');
         error.name = 'FrontCameraUnavailableError';
+        error.stage = 'camera';
         throw error;
       }
       if (!provided) adoptStream();
@@ -386,7 +387,7 @@ export class HandGestureController {
         // Abort the other parallel download as soon as one branch fails. A
         // timeout remains a retryable error rather than an indefinite spinner.
         abort.abort();
-        this._status('error', startupErrorMessage(error), 0, true, error?.stage);
+        this._status('error', startupErrorMessage(error), 0, true, error?.stage, error?.name);
       }
       return false;
     } finally {
@@ -421,7 +422,7 @@ export class HandGestureController {
         } catch (error) {
           if (generation === this._generation) {
             this.stop();
-            this._status('error', '手势识别暂时中断，请重试。触屏操作仍可使用。', 0, true);
+            this._status('error', '手势识别暂时中断，请重试。触屏操作仍可使用。', 0, true, 'recognition', error?.name);
           }
           return;
         }

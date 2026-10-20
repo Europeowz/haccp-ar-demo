@@ -1,11 +1,29 @@
+const tracksOf = stream => {
+  try { return stream?.getVideoTracks?.() || []; } catch { return []; }
+};
+
+/**
+ * Observe an already-started video without acquiring or stopping its camera.
+ * This checks output health only; the caller must establish which camera it is.
+ * A successful result describes this observation window, not future availability.
+ */
+export async function verifyCameraVideo({ stream, video, timeoutMs = 1200, signal } = {}) {
+  if (signal?.aborted) return { supported: false, reason: '相机视频核验已取消。' };
+  if (!video || !stream || video.srcObject !== stream) {
+    return { supported: false, reason: '未提供正在显示的相机视频画面。' };
+  }
+  const tracks = tracksOf(stream);
+  if (!tracks.length) return { supported: false, reason: '相机画面没有相机视频轨道。' };
+  return observeVideoSources([{ name: '相机', video, stream, tracks }], { timeoutMs, signal, concurrent: false });
+}
+
 /**
  * Verify two already-started video streams without acquiring or owning either.
  * A successful result describes this short observation window, not a permanent
  * device capability. The caller must continue monitoring its camera tracks.
  */
 export async function verifyConcurrentCamera({ rearStream, rearVideo, frontVideo, timeoutMs = 1200, signal } = {}) {
-  const cancelled = () => ({ supported: false, reason: '双摄核验已取消。' });
-  if (signal?.aborted) return cancelled();
+  if (signal?.aborted) return { supported: false, reason: '双摄核验已取消。' };
   const videos = [
     { name: '后置实景', video: rearVideo, stream: rearStream },
     { name: '前置手势', video: frontVideo, stream: frontVideo?.srcObject }
@@ -13,9 +31,6 @@ export async function verifyConcurrentCamera({ rearStream, rearVideo, frontVideo
   if (!rearVideo || !frontVideo || rearVideo === frontVideo || !rearStream || rearVideo.srcObject !== rearStream) {
     return { supported: false, reason: '未提供独立且正在显示的前后视频画面。' };
   }
-  const tracksOf = stream => {
-    try { return stream?.getVideoTracks?.() || []; } catch { return []; }
-  };
   for (const side of videos) {
     side.tracks = tracksOf(side.stream);
     if (!side.tracks.length) return { supported: false, reason: `${side.name}画面没有相机视频轨道。` };
@@ -31,6 +46,12 @@ export async function verifyConcurrentCamera({ rearStream, rearVideo, frontVideo
   if (deviceIds[0] && deviceIds[0] === deviceIds[1]) {
     return { supported: false, reason: '前后画面来自同一相机设备，无法确认独立双摄。' };
   }
+  return observeVideoSources(videos, { timeoutMs, signal, concurrent: true });
+}
+
+function observeVideoSources(videos, { timeoutMs, signal, concurrent }) {
+  const label = concurrent ? '双摄' : '相机视频';
+  const cancelled = () => ({ supported: false, reason: `${label}核验已取消。` });
   const duration = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) >= 0 ? Number(timeoutMs) : 1200;
   const freshnessWindow = Math.max(80, Math.min(300, duration / 3));
 
@@ -80,13 +101,14 @@ export async function verifyConcurrentCamera({ rearStream, rearVideo, frontVideo
     const videoReady = video => video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0;
     const fresh = side => side.frames >= 2 && performance.now() - side.lastFrameAt <= freshnessWindow;
     const maybeComplete = () => {
-      // Do not accept two old rear frames followed much later by two front
-      // frames. Both streams must still be producing during the same window.
+      // Every source must still produce fresh frames in the same window; old
+      // callbacks are insufficient even when their original tracks remain live.
       if (!videos.every(fresh) || !healthy()) return;
       const weaker = videos.filter(side => side.method === 'time');
+      const output = concurrent ? '双摄同时持续输出画面' : '相机持续输出画面';
       finish(true, weaker.length
-        ? `双摄同时持续输出画面（${weaker.map(side => side.name).join('、')}使用 currentTime + readyState 兼容核验，证据较弱）。`
-        : '双摄同时持续输出画面（两路均已通过视频帧回调核验）。');
+        ? `${output}（${weaker.map(side => side.name).join('、')}使用 currentTime + readyState 兼容核验，证据较弱）。`
+        : `${output}（${concurrent ? '两路均已' : '已'}通过视频帧回调核验）。`);
     };
     const frameSample = (side, metadata) => {
       // mediaTime is the source frame timestamp. A rising callback count with a
@@ -146,7 +168,7 @@ export async function verifyConcurrentCamera({ rearStream, rearVideo, frontVideo
       if (!healthy()) return;
       const frozen = videos.filter(side => !fresh(side)).map(side => side.name).join('、');
       const weaker = videos.some(side => side.method === 'time') ? '（currentTime + readyState 兼容核验）' : '';
-      finish(false, `双摄核验超时：${frozen}没有持续的新画面${weaker}。`);
+      finish(false, `${label}核验超时：${frozen}没有持续的新画面${weaker}。`);
     }, duration);
     poll = setInterval(() => {
       if (!healthy()) return;

@@ -8,7 +8,7 @@
   <title>饮料灌装线 · AR 数字展台</title>
   <link rel="icon" href="data:,">
   <script id="camera-entry-bootstrap">
-// Generated from camera-entry.js by work/haccp-v13/remove-retired-features.py.
+// Generated from camera-entry.js by work/haccp-v14/integrate-session.py.
 /* AR entry requests permission before the renderer; 3D is an explicit alternative. */
 (() => {
   'use strict';
@@ -53,8 +53,8 @@
       elements.button.setAttribute('aria-label', state.mode === 'ar' ? '切换 3D 浏览' : '返回 AR 实景');
     }
     if (elements.label) elements.label.textContent = state.mode === 'ar' ? '切换 3D' : '返回 AR';
-    if (elements.mode) elements.mode.textContent = active ? 'AR 实景预览' : opening ? '正在进入 AR' : '3D 展台';
-    if (elements.instruction) elements.instruction.textContent = active
+    if (elements.mode) elements.mode.textContent = state.reason === 'hands' ? '前摄手势模式' : active ? 'AR 实景预览' : opening ? '正在进入 AR' : '3D 展台';
+    if (elements.instruction) elements.instruction.textContent = state.reason === 'hands' ? '后置实景已暂停 · 关闭手势后恢复' : active
       ? '产线已呈现 · 拖动旋转 · 双指缩放' : opening ? '请允许浏览器权限' : '拖动旋转 · 双指缩放';
   }
   function publish(phase, message, reason = '') {
@@ -77,9 +77,9 @@
     release(previous);
   }
   // Host tools suspend the rear feed without changing the user's AR/3D choice.
-  function stop() {
+  function stop({reason = 'paused', message = 'AR 实景暂时暂停，可继续查看模型。'} = {}) {
     suspended = true; resumeOnVisible = false; clearSession();
-    publish('off', 'AR 实景暂时暂停，可继续查看模型。', 'paused');
+    publish('off', message, reason);
   }
   function continue3D() {
     state.mode = '3d'; suspended = false; resumeOnVisible = false; clearSession();
@@ -273,7 +273,7 @@
   <link rel="stylesheet" href="orientation-shared.css?v=13">
   <link rel="stylesheet" href="responsive-v7.css?v=12">
   <link rel="stylesheet" href="haccp-link.css?v=13">
-  <script type="module" src="ar.js?v=13"></script>
+  <script type="module" src="ar.js?v=14"></script>
 </head>
 <body>
   <main id="stage" class="stage camera-opening orientation-surface" aria-label="产线 AR 数字展台">
@@ -292,7 +292,7 @@
     </model-viewer>
     <svg id="flow-overlay" class="flow-overlay" hidden aria-hidden="true"><path id="flow-track"/><circle id="flow-dot" r="4"/></svg>
     <header class="topbar">
-      <a class="brand" href="?case=water&amp;rev=13" aria-label="饮料灌装线展台首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none"><path d="M4 23V12l6 3V9l6 3V5h8v18H4Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 19h2m4 0h2m3-3h2m-2 3h2" stroke="currentColor" stroke-width="1.5"/></svg></span><span><strong>饮料灌装线</strong><small>AR 数字展台</small></span></a>
+      <a class="brand" href="?case=water&amp;rev=14" aria-label="饮料灌装线展台首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none"><path d="M4 23V12l6 3V9l6 3V5h8v18H4Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 19h2m4 0h2m3-3h2m-2 3h2" stroke="currentColor" stroke-width="1.5"/></svg></span><span><strong>饮料灌装线</strong><small>AR 数字展台</small></span></a>
       <div class="topbar-actions"><button id="orientation-toggle" type="button" aria-pressed="false">全屏查看</button><button id="about-toggle" class="case-badge" type="button" aria-expanded="false" aria-controls="about-panel"><span class="status-dot"></span>方案演示 <span aria-hidden="true">ⓘ</span></button></div>
     </header>
     <aside id="about-panel" class="about-panel" hidden><strong>从工艺方案到可视化产线</strong><p>当前为预置饮料案例，未解析提交文件。模型为产线示意，不代表工程尺寸或已审核的 HACCP 计划。</p><p>入口为摄像头实景叠加展示，可旋转缩放并按设备查看结构与 HACCP 控制要求。模型位置由屏幕操作调整，不进行地面识别或空间定位。</p><button id="about-close" type="button">知道了</button></aside>
@@ -307,7 +307,7 @@
     <section id="detail-panel" class="detail-panel" hidden aria-labelledby="detail-title"><div class="structure-heading"><div><small id="detail-level">产线 → 选择设备</small><h2 id="detail-title">选择一台设备</h2></div><button id="detail-exit" class="text-button" type="button" aria-label="返回产线展台">展台 ↗</button></div><label class="equipment-select-label" for="equipment-select">设备<select id="equipment-select"><option value="">请选择设备</option></select></label><div class="segment scope-segment" aria-label="结构展示范围"><button id="scope-line" type="button">← 选其他设备</button><button id="scope-valve" type="button" hidden>灌装阀内件</button></div><p id="detail-copy">点击模型中的设备编号，查看这台设备的部件拆分。</p></section>
     <div class="stage-caption"><span id="stage-mode">AR 实景预览</span><span id="stage-instruction">正在申请权限</span></div>
     <p id="status" class="toast" role="status" aria-live="polite" hidden></p>
-    <section id="case-error" class="error-panel" hidden role="alert"><h1>这个演示案例尚未配置</h1><p>当前仅提供饮料灌装示例，不会自动替换你指定的案例。</p><a href="?case=water&amp;rev=13">查看饮料灌装示例</a></section>
+    <section id="case-error" class="error-panel" hidden role="alert"><h1>这个演示案例尚未配置</h1><p>当前仅提供饮料灌装示例，不会自动替换你指定的案例。</p><a href="?case=water&amp;rev=14">查看饮料灌装示例</a></section>
     <section id="model-error" class="error-panel" hidden role="alert"><h2>模型暂时无法加载</h2><p>可以重试，或先查看 HACCP 示例方案。</p><button id="retry-model" type="button">重新加载</button></section>
     <footer class="bottom-dock">
       <section id="device-picker" class="device-picker" hidden aria-label="选择要拆分的设备"><p>先选设备，再展开它的内部部件</p><nav id="device-strip" aria-label="产线设备列表"></nav></section>
@@ -316,7 +316,7 @@
       <section id="parts-panel" class="parts-panel" hidden aria-label="设备部件说明"><nav id="parts-strip" aria-label="选择部件"></nav><div class="part-summary"><strong id="part-name">整线设备结构</strong><p id="part-copy"></p></div></section>
       <section id="process-panel" class="process-panel" hidden aria-label="工艺流向示意"><nav id="process-strip" aria-label="选择工序"></nav><div class="process-summary"><span id="process-number">01</span><div><strong id="process-name">空瓶上料</strong><p id="process-copy"></p></div></div></section>
       <div id="haccp-model-link" aria-label="当前模型的食品安全控制"></div>
-      <div class="primary-actions"><button id="view-mode-toggle" aria-label="切换 3D 浏览" aria-pressed="false" class="secondary-action" type="button"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 4h18v13H3V4Zm5 17h8m-4-4v4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="view-mode-label">切换 3D</span></button><a id="analysis-link" class="primary-action" href="analysis.html?case=water&amp;view=result&amp;rev=13"><span>查看 HACCP 方案</span><span aria-hidden="true">↗</span></a></div>
+      <div class="primary-actions"><button id="view-mode-toggle" aria-label="切换 3D 浏览" aria-pressed="false" class="secondary-action" type="button"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 4h18v13H3V4Zm5 17h8m-4-4v4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="view-mode-label">切换 3D</span></button><a id="analysis-link" class="primary-action" href="analysis.html?case=water&amp;view=result&amp;rev=14"><span>查看 HACCP 方案</span><span aria-hidden="true">↗</span></a></div>
       <p class="scope-line">产线示意模型 · 预置方案演示</p>
     </footer>
   </main>

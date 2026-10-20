@@ -2,7 +2,7 @@ import { demoCase } from './case-data.js';
 import { TouchStructureController } from './touch-gestures.js';
 import { setupOrientation } from './orientation.js?v=13';
 import { fitCameraToBounds } from './camera-fit.js?v=7';
-import { setupHaccpLink } from './haccp-link.js?v=13';
+import { setupHaccpLink } from './haccp-link.js?v=14';
 
 // Switch these paths only after the corresponding local assets exist.
 const ASSETS = {
@@ -35,8 +35,8 @@ let sourceVersion = 0;
 let handController = null;
 let handWanted = false;
 let handGeneration = 0;
-let dualAbort = null;
-let dualTimer = 0;
+let handSession = null;
+let pageLeaving = false;
 let fittedRadius = 8;
 let framingRevision = 0;
 const PART_COPY = {
@@ -208,7 +208,7 @@ function updateAnalysisLink() {
   const part = partSpec?.parts.find((item) => item.id === selectedPart);
   const processId = isEquipmentView() ? (state.detailScope === 'valve' ? 'p03' : part?.process || state.equipmentId) : state.selected;
   const process = demoCase.processes.find((item) => item.id === processId) || demoCase.processes[2];
-  const params = new URLSearchParams({ case: caseId, view: 'result', process: process.id, rev: '13' });
+  const params = new URLSearchParams({ case: caseId, view: 'result', process: process.id, rev: '14' });
   $('analysis-link').href = `analysis.html?${params}`;
   $('analysis-link').firstElementChild.textContent = state.detail && state.detailScope === 'valve' ? '查看灌装 HACCP' : '查看 HACCP 方案';
   haccpUi?.setProcess(process.id, {context:isEquipmentView() ? `${partSpec?.name || $('detail-title').textContent}${part?.name ? ` / ${part.name}` : ''}` : process.name});
@@ -534,101 +534,63 @@ async function setLineStructure({ expanded = 1 } = {}) {
 }
 function stopHands(resumeAR = true) {
   const wasActive = handWanted;
-  dualAbort?.abort(); dualAbort = null; clearTimeout(dualTimer);
-  handWanted = false;
-  handGeneration += 1;
-  handController?.stop();
+  handWanted = false; handGeneration += 1;
+  const previous = handSession; handSession = null;
+  if (previous) void previous.stop({restoreRear:resumeAR && !pageLeaving});
+  else handController?.stop();
   handController = null;
   $('hand-label').textContent = '隔空缩放';
   $('hand-control').setAttribute('aria-pressed', 'false');
-  $('gesture-panel').hidden = true;
-  $('hand-preview').replaceChildren();
+  $('gesture-panel').hidden = true; $('hand-preview').replaceChildren();
   stage.classList.remove('hands-active');
   if (wasActive && state.detail && state.loaded) requestAnimationFrame(frameModel);
-  if (wasActive && resumeAR) void window.ExhibitCamera?.resume();
 }
 async function startHands() {
   if (handWanted) { stopHands(); return; }
   if (!state.loaded || !equipmentCatalog.length) { notify('请等待设备结构加载后再开启手势。'); return; }
-  const rear = window.ExhibitCamera?.getState();
+  const camera = window.ExhibitCamera, rear = camera?.getState();
   if (rear?.mode === 'ar' && rear.phase !== 'active') { notify('请先允许 AR 实景权限，再开启前置手势。'); return; }
-  handWanted = true;
-  const token = ++handGeneration;
-  const failedHands = async (message) => {
-    if (token !== handGeneration || !handWanted) return;
-    stopHands(false);
-    const camera = window.ExhibitCamera;
-    if (rear?.phase === 'active' && !document.hidden && !stage.inert && camera?.getState().mode === 'ar') {
-      camera.stop();
-      const restored = await camera.resume();
-      notify(`${message}${restored ? ' 后置实景已恢复。' : ' 请重试 AR 恢复实景。'}`, 9500);
-    } else notify(message);
-  };
-  $('hand-control').setAttribute('aria-pressed', 'true');
-  $('hand-label').textContent = '取消缩放';
-  $('gesture-panel').hidden = false;
-  $('hand-state').textContent = '正在加载本地手势识别';
-  stage.classList.add('hands-active');
-  requestAnimationFrame(frameModel);
+  handWanted = true; const token = ++handGeneration;
+  const current = () => token === handGeneration && handWanted && !pageLeaving;
+  $('hand-control').setAttribute('aria-pressed', 'true'); $('hand-label').textContent = '取消缩放';
+  $('gesture-panel').hidden = false; $('hand-state').textContent = '正在加载本地手势识别';
+  stage.classList.add('hands-active'); requestAnimationFrame(frameModel);
   try {
-    const [{ HandGestureController }, { verifyConcurrentCamera }] = await Promise.all([import('./hand-gestures.js?v=13'), import('./dual-camera.js?v=6')]);
-    if (token !== handGeneration || !handWanted) return;
-    let latestMessage = '', frontVideo = null, dualVerified = false;
-    const activeGesture = () => token === handGeneration && handWanted && state.loaded && !stage.inert && !document.hidden && !haccpUi?.isOpen();
-    const controller = new HandGestureController({
-      onZoom: (factor) => { if (activeGesture()) applyZoom(factor); },
-      onStatus: ({ state: status, message, hands }) => {
-        if (token !== handGeneration || !handWanted) return;
-        latestMessage = message;
-        $('hand-state').textContent = message;
-        $('hand-help').textContent = `${dualVerified ? '前后双摄 · ' : '前摄手势 · '}单手捏合缩放 · 拆分请使用滑杆或按钮`;
-        if (status === 'ready' || status === 'tracking' || status === 'searching') $('hand-label').textContent = '关闭缩放';
-        if (status === 'error' || status === 'stopped') queueMicrotask(() => {
-          if (token !== handGeneration || !handWanted) return;
-          void failedHands(latestMessage || '隔空缩放已停止，可以继续使用触屏和滑杆。');
-        });
+    const [{ HandGestureController }, { verifyConcurrentCamera, verifyCameraVideo }, { HandCameraSession }] = await Promise.all([
+      import('./hand-gestures.js?v=14'), import('./dual-camera.js?v=14'), import('./hand-camera-session.js?v=14')
+    ]);
+    if (!current()) return;
+    let cameraMode = 'starting', rearPaused = false;
+    const help = () => { $('hand-help').textContent = `${cameraMode === 'dual' ? '前后双摄' : rearPaused ? '前摄优先 · 后摄已暂停' : '前摄手势'} · 单手捏合缩放 · ${rear?.mode === 'ar' ? '关闭手势后恢复后摄' : '拆分请用按钮或滑杆'}`; };
+    const session = new HandCameraSession({ camera, rearVideo:feed,
+      verifyDual:verifyConcurrentCamera, verifyFront:verifyCameraVideo,
+      isCurrent:current, canRestoreRear:() => !pageLeaving && !stage.inert,
+      createController: callbacks => {
+        const controller = new HandGestureController({...callbacks,onZoom:factor => {
+          if (current() && state.loaded && !stage.inert && !document.hidden && !haccpUi?.isOpen()) applyZoom(factor);
+        }});
+        controller.setExplode(state.explosion); handController = controller; return controller;
       },
-      onPreview: (video) => {
-        if (token !== handGeneration || !handWanted) return;
-        frontVideo = video;
-        $('hand-preview').replaceChildren(...(video ? [video] : []));
+      onPreview:video => { if (current()) $('hand-preview').replaceChildren(...(video ? [video] : [])); },
+      onStatus:({state:status,message}) => {
+        if (!current()) return;
+        $('hand-state').textContent = message; help();
+        if (['ready','tracking','searching'].includes(status)) $('hand-label').textContent = '关闭缩放';
       },
+      onMode:({mode,pausedRear}) => {
+        if (!current()) return;
+        cameraMode = mode; rearPaused = pausedRear; help();
+        if (mode === 'checking') $('hand-state').textContent = '正在确认前后双摄同时出画';
+        if (mode === 'switching') $('hand-state').textContent = '正在优先连接前置相机，后置实景暂停';
+        if (mode === 'front-only' && pausedRear) notify('当前设备采用前摄手势模式，后置实景已暂停；关闭手势后自动恢复。',6500);
+      },
+      onStopped:({message}) => { if (current()) { stopHands(false); notify(message,9500); } },
     });
-    handController = controller;
-    controller.setExplode(state.explosion);
-    const started = await controller.start({ facingMode: 'user' });
-    if (token !== handGeneration || !handWanted) { controller.stop(); return; }
-    if (!started) {
-      const message = $('hand-state').textContent;
-      await failedHands(message || '手势识别暂未启动，可继续使用触屏或拆分滑杆。');
-      return;
-    }
-    if (rear?.phase === 'active' && rear.stream) {
-      dualAbort = new AbortController();
-      const signal = dualAbort.signal;
-      const check = async () => {
-        const result = await verifyConcurrentCamera({ rearStream: rear.stream, rearVideo: feed, frontVideo, timeoutMs: 1600, signal });
-        if (signal.aborted || token !== handGeneration || !handWanted) return;
-        if (!result.supported) {
-          stopHands(false);
-          const camera = window.ExhibitCamera;
-          if (!document.hidden && !stage.inert && camera?.getState().mode === 'ar') {
-            camera.stop();
-            const restored = await camera.resume();
-            notify(restored ? '本次浏览器未能同时保持前后双摄。已关闭前置手势并恢复实景，请使用触屏拆分。' : '本次双摄未能同时工作。前置手势已关闭，请重试 AR 恢复实景。', 9500);
-          }
-          return;
-        }
-        dualVerified = true;
-        $('hand-help').textContent = '前后双摄 · 单手捏合缩放 · 拆分请使用滑杆或按钮';
-        dualTimer = setTimeout(() => void check(), 1500);
-      };
-      $('hand-state').textContent = '正在确认前后双摄同时出画';
-      void check();
-    }
+    handSession = session; await session.start();
+    if (!current() && handSession !== session) void session.stop({restoreRear:false});
   } catch (error) {
-    if (token !== handGeneration) return;
-    await failedHands('手势资源暂不可用，可继续使用触屏与拆分滑杆，稍后再试。');
+    if (!current()) return;
+    stopHands(); notify('手势资源暂不可用，可继续使用触屏与拆分滑杆，稍后再试。');
   }
 }
 let mainPrepared = false;
@@ -719,7 +681,7 @@ document.addEventListener('visibilitychange', () => {
     if (state.flow && !stage.inert) { stopFlowDrawing(); flowFrame = requestAnimationFrame(drawFlow); }
   }
 });
-window.addEventListener('pagehide', () => { stopHands(); setPlaying(false); stopFlowDrawing(); cancelAnimationFrame(explosionFrame); touchController.disable(); clearTimeout(toastTimer); });
+window.addEventListener('pagehide', () => { pageLeaving = true; stopHands(false); setPlaying(false); stopFlowDrawing(); cancelAnimationFrame(explosionFrame); touchController.disable(); clearTimeout(toastTimer); });
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
@@ -781,3 +743,5 @@ if (globalThis.ResizeObserver) {
   layoutObserver.observe(viewer);
   for (const element of [stage, stage.querySelector('.bottom-dock'), $('detail-panel')]) layoutObserver.observe(element);
 }
+
+window.addEventListener('pageshow', () => { pageLeaving = false; const camera = window.ExhibitCamera; if (camera?.getState().mode === 'ar' && camera.getState().reason === 'hands' && !document.hidden) void camera.resume(); });

@@ -363,7 +363,7 @@ function startDemo() {
   });
   byId('ar').addEventListener('click', () => {
     stopGuide();
-    location.href = './?case=water&rev=13';
+    location.href = './?case=water&rev=14';
   });
 
   const markdownValue = (value) => text(value).replace(/\r?\n/g, ' ');

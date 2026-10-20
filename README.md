@@ -1,7 +1,7 @@
-# HACCP AR demonstration · version 13
+# HACCP AR demonstration · version 14
 
-Static beverage-line demonstration using preset case data. It is not connected to file parsing, live monitoring, real AI model generation or actual plant approval.
+Static preset beverage-line exhibition. No file parsing, live plant data or actual compliance approval.
 
-Version 13 removes life-size/ground placement and its spatial runtime, index swipes and all disassembly gestures. Front-camera single-hand pinch zoom and manual equipment controls remain. The report follows the actual browser viewport with no CSS rotation or persisted landscape preference.
+Version 14 prioritizes the front hand camera when concurrent cameras fail: pause/clear the rear feed, preserve a healthy front stream or reconnect it once, and release the front before restoring the rear on close. Dual-camera capable devices keep both feeds. Permission and model/runtime errors do not trigger repeated camera requests.
 
-HACCP requirements and missing evidence are linked by process ID. No demonstration action grants real product release or compliance. Physical phone camera and human hand acceptance remain pending.
+Life-size AR and disassembly gestures remain retired. Manual structure controls, single-hand pinch, HACCP process mapping and natural viewport orientation remain available. Physical phone camera acceptance is pending.
